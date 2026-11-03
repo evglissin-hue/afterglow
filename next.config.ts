@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // The alert job reads spot tiles from disk (app/_server/alerts/spots.ts); ship them with it.
+  outputFileTracingIncludes: {
+    "/api/cron/alerts": ["./public/data/spots/**/*.json"],
+  },
   async headers() {
     return [
       {
