@@ -369,6 +369,8 @@ push_subs       id, user_id, endpoint, p256dh, auth, created_at, last_ok_at
                 (as built, before accounts: push_subscriptions in supabase/schema.sql, one row
                 per phone with the rounded place, walk, alert settings, favorites, time zone,
                 and per-day decided/sent dates; service role only)
+app_settings    key, value: the server's own secrets (push keys, made on first use; the
+                15-minute job's secret, made by schema.sql); service role only
 forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, confidence, inputs (jsonb)
 ```
 
@@ -429,5 +431,5 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 - **Now:** check a handful of the spots the app finds near you, against what you know of them.
 - **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; only the owner's Vercel login can open it for now).
 - **To deploy on every push:** connect the GitHub repo in the Vercel project's Git settings.
-- **For alerts:** a free Supabase project, a few Vercel settings and one SQL paste: `supabase/README.md`.
+- **For alerts:** switch Vercel Authentication off, add a Supabase database from Vercel's Storage tab, paste one SQL file, redeploy: `supabase/README.md`. Nothing to copy or make up.
 - **Before M3 (accounts, uploading logs and photos):** the same Supabase project, plus a Google sign-in client. I'll write step-by-step instructions when we get there.

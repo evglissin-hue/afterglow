@@ -34,8 +34,24 @@ type Notice = { tone: "ok" | "error"; text: string; id: number };
 
 const CARD = "rounded-2xl border border-white/10 bg-white/[0.04] p-4";
 
+type Config = { configured: boolean; publicKey: string | null };
+
 /** The alerts screen: switch alerts on or off for this device and choose when to hear about a sunset. */
-export default function AlertSettings({ configured, publicKey }: { configured: boolean; publicKey: string | null }) {
+export default function AlertSettings() {
+  // Whether alerts work here, and the push key, from the server: the key lives in the database.
+  const [config, setConfig] = useState<Config | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/push/config")
+      .then((r) => (r.ok ? (r.json() as Promise<Config>) : { configured: false, publicKey: null }))
+      .catch((): Config => ({ configured: false, publicKey: null }))
+      .then((c) => !cancelled && setConfig(c));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const { configured, publicKey } = config ?? { configured: false, publicKey: null };
+
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-24">
       <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-mist hover:text-ink">
@@ -44,7 +60,15 @@ export default function AlertSettings({ configured, publicKey }: { configured: b
       </Link>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Sunset alerts</h1>
       <p className="mt-3 text-mist">A nudge on your phone when tonight&apos;s sunset looks worth stepping out for.</p>
-      {configured && publicKey ? <Alerts publicKey={publicKey} /> : <NotSwitchedOn />}
+      {!config ? (
+        <p className="mt-8 text-mist" aria-live="polite">
+          Checking…
+        </p>
+      ) : configured && publicKey ? (
+        <Alerts publicKey={publicKey} />
+      ) : (
+        <NotSwitchedOn />
+      )}
     </main>
   );
 }

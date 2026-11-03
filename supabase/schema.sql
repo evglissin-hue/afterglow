@@ -1,8 +1,8 @@
 -- Afterglow: sunset alerts (web push).
 --
--- How to use: in Supabase, open SQL Editor → New query, paste this whole file,
--- fill in the line marked FILL IN in step 3 (and the optional one under it), then
--- press Run. Running it again later is safe: it only adds what's missing and
+-- How to use: in Supabase, open SQL Editor → New query, paste this whole file and
+-- press Run. Nothing to fill in, unless the site is still behind Vercel's login
+-- (see step 4). Running it again later is safe: it only adds what's missing and
 -- replaces the scheduled job.
 
 -- 1. Extensions: pg_cron runs a job on a schedule, pg_net lets it make a web request.
@@ -50,24 +50,35 @@ alter table public.push_subscriptions enable row level security;
 revoke all on table public.push_subscriptions from anon, authenticated;
 grant select, insert, update, delete on table public.push_subscriptions to service_role;
 
--- 3. The job: every 15 minutes, ask the site to send the alerts that are due.
+-- 3. The server's own secrets, private like the table above: the push (VAPID) keys,
+--    which the site makes the first time it needs them, and the secret the job in
+--    step 4 sends so the site knows the request is real, made here (64 random hex
+--    characters from two random UUIDs).
+create table if not exists public.app_settings (
+  key        text primary key,
+  value      text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.app_settings enable row level security;
+revoke all on table public.app_settings from anon, authenticated;
+grant select, insert, update, delete on table public.app_settings to service_role;
+insert into public.app_settings (key, value)
+values ('cron_secret', replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''))
+on conflict (key) do nothing;
+
+-- 4. The job: every 15 minutes, ask the site to send the alerts that are due.
 do $setup$
 declare
-  -- FILL IN: the same long random text you saved as CRON_SECRET in Vercel,
-  -- between the quotes.
-  cron_secret text := 'PASTE-YOUR-CRON-SECRET-HERE';
-
-  -- FILL IN, only while the site is behind Vercel Authentication: the secret
-  -- from Vercel → Settings → Deployment Protection → Protection Bypass for
-  -- Automation. Leave it as '' if Vercel Authentication is off.
+  -- Only while the site is behind Vercel Authentication: the secret from Vercel →
+  -- Settings → Deployment Protection → Protection Bypass for Automation, between
+  -- the quotes. Leave it as '' if Vercel Authentication is off.
   bypass_secret text := '';
 
   site_url text := 'https://afterglow-evglissin-hue.vercel.app';
+  cron_secret text;
   request_headers jsonb;
 begin
-  if cron_secret = 'PASTE-YOUR-CRON-SECRET-HERE' or length(cron_secret) < 16 then
-    raise exception 'Paste your CRON_SECRET into the cron_secret line in step 3 first (at least 16 characters), then run again.';
-  end if;
+  select value into cron_secret from public.app_settings where key = 'cron_secret';
 
   request_headers := jsonb_build_object(
     'Content-Type', 'application/json',
@@ -96,6 +107,8 @@ $setup$;
 --   select status, start_time, return_message from cron.job_run_details order by start_time desc limit 5;
 --   select created, status_code, content from net._http_response order by created desc limit 5;
 -- A healthy run answers status 200 with {"ok":true,…}; 401 means the CRON_SECRET here and in
--- Vercel don't match; an HTML page about logging in means the Vercel bypass secret is missing.
+-- the site doesn't match (a CRON_SECRET set in Vercel overrides the one made here; remove it);
+-- an HTML page about logging in means the site is behind Vercel's login: switch that off, or
+-- fill in bypass_secret in step 4 and run this again.
 --
 -- To stop the job:  select cron.unschedule('afterglow-alerts');

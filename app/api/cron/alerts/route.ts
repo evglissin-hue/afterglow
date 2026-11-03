@@ -16,5 +16,5 @@ const sources: JobSources = {
  * 15 minutes (supabase/schema.sql); it sends the alerts that are due and returns a summary.
  */
 export async function POST(request: Request) {
-  return runCron(request, alertServices(), sources);
+  return runCron(request, await alertServices(), sources);
 }

@@ -13,6 +13,8 @@ export interface AlertServices {
   store: SubscriptionStore;
   sender: PushSender;
   cronSecret: string;
+  /** The push (VAPID) public key browsers subscribe with. */
+  publicKey?: string;
   /** The current time; tests pin it. */
   clock?: () => Date;
 }
