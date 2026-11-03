@@ -4,6 +4,8 @@ Sunset forecast and neighborhood sunset spots for London. A hobby project; the p
 
 **Status:** M1 (tonight's forecast) and M2 (spots near you) are built. Contributions and alerts come next.
 
+**Live:** https://afterglow-evglissin-hue.vercel.app (on Vercel; sign in with the owner's Vercel account to open it).
+
 ## What it does now
 
 - Scores tonight's sunset from 0 to 100 using cloud forecasts at 8 points along the line toward the sunset. It shows the likely look ("pastel pink", "fiery orange", "grey"), the best color window and a confidence level based on how much three weather models agree.

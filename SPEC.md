@@ -408,5 +408,6 @@ Installable PWA (manifest + service worker), push opt-in and settings, and the 1
 
 - **Done:** network access, the GitHub repo, and the test neighborhood (Hoxton).
 - **Now:** check a handful of the spots the app finds near you, against what you know of them.
-- **To put it online:** a free Vercel account with the repo imported. It needs no settings or keys yet.
+- **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; only the owner's Vercel login can open it for now).
+- **To deploy on every push:** connect the GitHub repo in the Vercel project's Git settings.
 - **Before M3:** a free Supabase project and a Google sign-in client. I'll write step-by-step instructions when we get there.
