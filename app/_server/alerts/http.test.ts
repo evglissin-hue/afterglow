@@ -46,18 +46,7 @@ function setup(now = new Date("2026-11-03T12:00:00Z")) {
   const store = new MemoryStore();
   const sender = new FakeSender();
   const clock = { now };
-  const services: AlertServices = {
-    store,
-    sender,
-    cronSecret: "a-long-enough-cron-secret",
-    forecastAt: async () => {
-      throw new Error("not used");
-    },
-    spotsNear: async () => {
-      throw new Error("not used");
-    },
-    clock: () => clock.now,
-  };
+  const services: AlertServices = { store, sender, cronSecret: "a-long-enough-cron-secret", clock: () => clock.now };
   return { store, sender, services, clock };
 }
 

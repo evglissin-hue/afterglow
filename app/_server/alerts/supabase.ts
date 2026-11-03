@@ -179,9 +179,11 @@ export class SupabaseStore implements SubscriptionStore {
   }
 }
 
-export function supabaseStore(url: string, serviceRoleKey: string): SubscriptionStore {
+/** `fetch` is for tests, to see the requests without a database. */
+export function supabaseStore(url: string, serviceRoleKey: string, fetch?: typeof globalThis.fetch): SubscriptionStore {
   const db = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...(fetch ? { global: { fetch } } : {}),
   });
   return new SupabaseStore(db);
 }

@@ -13,11 +13,12 @@ export interface AlertServices {
   store: SubscriptionStore;
   sender: PushSender;
   cronSecret: string;
-  forecastAt: JobDeps["forecastAt"];
-  spotsNear: JobDeps["spotsNear"];
   /** The current time; tests pin it. */
   clock?: () => Date;
 }
+
+/** What only the alert job needs: forecasts and spot tiles. */
+export type JobSources = Pick<JobDeps, "forecastAt" | "spotsNear">;
 
 export const NOT_SET_UP = "Alerts aren't set up yet";
 export const TEST_GAP_MS = 60_000;
@@ -191,7 +192,11 @@ export function hasBearer(header: string | null, secret: string): boolean {
 }
 
 /** POST /api/cron/alerts, called by Supabase Cron every 15 minutes with the cron secret. */
-export async function runCron(request: Request, services: AlertServices | null): Promise<Response> {
+export async function runCron(
+  request: Request,
+  services: AlertServices | null,
+  sources: JobSources,
+): Promise<Response> {
   if (!services) return reply({ error: NOT_SET_UP }, 503);
   if (!hasBearer(request.headers.get("authorization"), services.cronSecret)) {
     return reply({ error: "Unauthorized" }, 401);
@@ -200,8 +205,7 @@ export async function runCron(request: Request, services: AlertServices | null):
     const summary = await runAlertJob({
       store: services.store,
       sender: services.sender,
-      forecastAt: services.forecastAt,
-      spotsNear: services.spotsNear,
+      ...sources,
       now: services.clock?.(),
     });
     if (summary.errors.length) console.warn("Alert job problems:", summary.errors);

@@ -5,22 +5,20 @@ import { tilesAround, type Spot, type SpotIndex } from "@/lib/spots";
 
 export type SpotsNear = (center: LatLon, radiusKm: number) => Promise<{ index: SpotIndex; spots: Spot[] }>;
 
-/**
- * Spot tiles read from public/data/spots on the server's disk. next.config.ts ships these files
- * with the alert job (outputFileTracingIncludes). Parsed tiles are kept for the life of the server.
- */
-export function fileSpots(dir = path.join(process.cwd(), "public", "data", "spots")): SpotsNear {
+// A path the build can see is inside public/data/spots, so only those files ship with the
+// alert job (next.config.ts lists them too, with outputFileTracingIncludes).
+const readSpotFile = async <T>(name: string): Promise<T> =>
+  JSON.parse(await readFile(path.join(process.cwd(), "public", "data", "spots", name), "utf8")) as T;
+
+/** Spot tiles read from public/data/spots on the server's disk, kept in memory once parsed. */
+export function fileSpots(): SpotsNear {
   let index: Promise<SpotIndex> | null = null;
   const tiles = new Map<string, Promise<Spot[]>>();
-
-  async function readJson<T>(name: string): Promise<T> {
-    return JSON.parse(await readFile(path.join(dir, name), "utf8")) as T;
-  }
 
   function tile(key: string): Promise<Spot[]> {
     let spots = tiles.get(key);
     if (!spots) {
-      spots = readJson<{ spots: Spot[] }>(`${key}.json`).then(
+      spots = readSpotFile<{ spots: Spot[] }>(`${key}.json`).then(
         (data) => data.spots,
         (error: unknown) => {
           tiles.delete(key);
@@ -33,7 +31,7 @@ export function fileSpots(dir = path.join(process.cwd(), "public", "data", "spot
   }
 
   return async (center, radiusKm) => {
-    index ??= readJson<SpotIndex>("index.json").catch((error: unknown) => {
+    index ??= readSpotFile<SpotIndex>("index.json").catch((error: unknown) => {
       index = null;
       throw error;
     });

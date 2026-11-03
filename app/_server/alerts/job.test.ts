@@ -12,7 +12,7 @@ import { rankSpots, tileKey } from "@/lib/spots";
 import { nextSunset } from "@/lib/sun";
 import air from "@/lib/weather/__fixtures__/air-london-2026-11-03.json";
 import recorded from "@/lib/weather/__fixtures__/forecast-london-2026-11-03.json";
-import { runCron, type AlertServices } from "./http";
+import { runCron, type AlertServices, type JobSources } from "./http";
 import { runAlertJob, type JobDeps } from "./job";
 import type { PushSender, PushTarget, SendOptions, SendResult } from "./push";
 import { fileSpots } from "./spots";
@@ -264,15 +264,9 @@ describe("the alert job", () => {
 
 describe("the cron route", () => {
   function services(store: MemoryStore, sender: FakeSender, now: Date): AlertServices {
-    return {
-      store,
-      sender,
-      cronSecret: "a-long-enough-cron-secret",
-      forecastAt: scoredForecasts(() => 70).forecastAt,
-      spotsNear,
-      clock: () => now,
-    };
+    return { store, sender, cronSecret: "a-long-enough-cron-secret", clock: () => now };
   }
+  const sources: JobSources = { forecastAt: scoredForecasts(() => 70).forecastAt, spotsNear };
   const cron = (authorization?: string) =>
     new Request("http://localhost/api/cron/alerts", {
       method: "POST",
@@ -282,7 +276,11 @@ describe("the cron route", () => {
   it("runs the job with the right secret and returns a summary", async () => {
     const store = new MemoryStore([subscription("brockley")]);
     const sender = new FakeSender();
-    const response = await runCron(cron("Bearer a-long-enough-cron-secret"), services(store, sender, before(119)));
+    const response = await runCron(
+      cron("Bearer a-long-enough-cron-secret"),
+      services(store, sender, before(119)),
+      sources,
+    );
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const body = await response.json();
@@ -294,9 +292,9 @@ describe("the cron route", () => {
     const store = new MemoryStore([subscription("brockley")]);
     const sender = new FakeSender();
     for (const header of [undefined, "Bearer wrong", "a-long-enough-cron-secret", "Bearer a-long-enough-cron-secret2"]) {
-      expect((await runCron(cron(header), services(store, sender, before(119)))).status).toBe(401);
+      expect((await runCron(cron(header), services(store, sender, before(119)), sources)).status).toBe(401);
     }
-    const notSetUp = await runCron(cron("Bearer a-long-enough-cron-secret"), null);
+    const notSetUp = await runCron(cron("Bearer a-long-enough-cron-secret"), null, sources);
     expect(notSetUp.status).toBe(503);
     expect(await notSetUp.json()).toEqual({ error: "Alerts aren't set up yet" });
     expect(sender.sent).toHaveLength(0);
@@ -307,7 +305,11 @@ describe("the cron route", () => {
     store.list = async () => {
       throw new Error("Supabase list failed: connection refused");
     };
-    const response = await runCron(cron("Bearer a-long-enough-cron-secret"), services(store, new FakeSender(), before(119)));
+    const response = await runCron(
+      cron("Bearer a-long-enough-cron-secret"),
+      services(store, new FakeSender(), before(119)),
+      sources,
+    );
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ ok: false, error: "Supabase list failed: connection refused" });
   });
