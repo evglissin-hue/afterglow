@@ -112,7 +112,10 @@ def name_spots(c: dict, idx: np.ndarray, osm: dict) -> list[str]:
     named = np.array([bool(a["name"]) and a["highway"] not in ("footway", "path", "cycleway") for a in attrs])
     streets = shapely.STRtree(paths[named])
     street_names = [a["name"] for a, ok in zip(attrs, named) if ok]
-    nearest = streets.query_nearest(shapely.points(c["x"][idx], c["y"][idx]), return_distance=False)[1]
+    # One street per spot: with all_matches (the default) ties return extra rows and misalign names.
+    pairs = streets.query_nearest(shapely.points(c["x"][idx], c["y"][idx]), all_matches=False)
+    nearest = np.empty(len(idx), dtype=np.int64)
+    nearest[pairs[0]] = pairs[1]
 
     names = []
     for n, i in enumerate(idx):
@@ -193,16 +196,14 @@ def write_tiles(spots: list[dict], area_name: str) -> int:
     return total
 
 
-def main(area_name: str) -> None:
-    started = time.time()
-    with open(HERE / "work" / "osm.pkl", "rb") as f:
-        osm = pickle.load(f)
+def compute_profiles(area_name: str, osm: dict, started: float) -> dict:
+    """The slow part: height map, candidates and their view profiles."""
     area = shapely.box(*area_bng(area_name))
     bbox = area_bng(area_name, margin=RAY_M + 100)
 
     terrain = load_terrain(str(HERE / "raw" / "terrain50.zip"), bbox)
     hm = build_heightmap(bbox, CELL_M, terrain, osm)
-    print(f"height map {hm.shape} in {time.time() - started:.0f}s")
+    print(f"height map {hm.shape} in {time.time() - started:.0f}s", flush=True)
 
     c = find_candidates(osm, area)
     kinds = c["kind"]
@@ -212,13 +213,33 @@ def main(area_name: str) -> None:
     kinds = c["kind"]
     roof = np.where(kinds == "viewpoint", hm.sample(hm.buildings, c["x"], c["y"]), 0.0)
     c["kind"] = kinds = np.where(roof > 0, "rooftop", kinds).astype(object)
-    eye = terrain.at(c["x"], c["y"]) + roof + EYE_M + c["eye_extra"]
+    ground = terrain.at(c["x"], c["y"])
+    eye = ground + roof + EYE_M + c["eye_extra"]
     counts = {k: int((kinds == k).sum()) for k in np.unique(kinds)}
-    print(f"{len(kinds)} candidates {counts} after {time.time() - started:.0f}s")
+    print(f"{len(kinds)} candidates {counts} after {time.time() - started:.0f}s", flush=True)
 
     profiles = horizon_profiles(hm, c["x"], c["y"], eye)
+    print(f"profiles in {time.time() - started:.0f}s", flush=True)
+    return {"c": c, "ground": ground, "eye": eye, "profiles": profiles}
+
+
+def main(area_name: str, reuse: bool = False) -> None:
+    started = time.time()
+    with open(HERE / "work" / "osm.pkl", "rb") as f:
+        osm = pickle.load(f)
+
+    cache = HERE / "work" / f"profiles-{area_name}.pkl"
+    if reuse and cache.exists():
+        with open(cache, "rb") as f:
+            computed = pickle.load(f)
+        print(f"reusing {cache.name}", flush=True)
+    else:
+        computed = compute_profiles(area_name, osm, started)
+        with open(cache, "wb") as f:
+            pickle.dump(computed, f, protocol=pickle.HIGHEST_PROTOCOL)
+    c, ground, eye, profiles = computed["c"], computed["ground"], computed["eye"], computed["profiles"]
+    kinds = c["kind"]
     score = score_profiles(profiles, kinds, c["street_bearing"])
-    print(f"profiles in {time.time() - started:.0f}s")
 
     keep = thin(c["x"], c["y"], score, c["group"])
     names = name_spots(c, keep, osm)
@@ -241,8 +262,8 @@ def main(area_name: str) -> None:
         if access := access_of(c["hours"][i]):
             spot["access"] = access
             spot["hours"] = c["hours"][i]
-        if eye[i] - terrain.at(c["x"][i : i + 1], c["y"][i : i + 1])[0] > EYE_M + 0.5:
-            spot["eye"] = round(float(eye[i] - terrain.at(c["x"][i : i + 1], c["y"][i : i + 1])[0]), 1)
+        if eye[i] - ground[i] > EYE_M + 0.5:
+            spot["eye"] = round(float(eye[i] - ground[i]), 1)
         spots.append(spot)
 
     (HERE / "work" / f"spots-{area_name}.json").write_text(json.dumps({"spots": spots}, ensure_ascii=False))
@@ -258,4 +279,5 @@ def main(area_name: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "hoxton")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(args[0] if args else "hoxton", reuse="--reuse" in sys.argv)

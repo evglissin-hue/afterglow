@@ -113,3 +113,26 @@ def test_canal_names_lose_the_tunnel_prefix():
 def test_shapely_is_v2():
     # The pipeline relies on vectorised shapely 2 functions.
     assert int(shapely.__version__.split(".")[0]) >= 2
+
+
+def test_spot_names_stay_aligned_when_two_streets_are_equally_close():
+    from build_spots import name_spots
+
+    paths = np.array(
+        [
+            shapely.LineString([(0, 10), (100, 10)]),  # A Street, 10 m north of spot 0
+            shapely.LineString([(0, -10), (100, -10)]),  # B Street, 10 m south of spot 0: a tie
+            shapely.LineString([(490, 5), (510, 5)]),  # C Road, next to spot 1
+        ],
+        dtype=object,
+    )
+    attrs = [{"name": n, "highway": "residential"} for n in ("A Street", "B Street", "C Road")]
+    c = {
+        "x": np.array([50.0, 500.0]),
+        "y": np.array([0.0, 0.0]),
+        "kind": np.array(["park", "park"], dtype=object),
+        "name": np.array([None, None], dtype=object),
+    }
+    names = name_spots(c, np.array([0, 1]), {"paths": (paths, attrs)})
+    assert names[0] in ("Green space off A Street", "Green space off B Street")
+    assert names[1] == "Green space off C Road"

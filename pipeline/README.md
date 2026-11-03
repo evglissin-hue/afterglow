@@ -25,6 +25,7 @@ curl -L -o raw/terrain50.zip "https://api.os.uk/downloads/v1/products/Terrain50/
 .venv/bin/python -I osm_extract.py raw/London.osm.pbf work/osm.pkl   # ~2 min
 .venv/bin/python -I build_spots.py hoxton                            # test area, ~30 s
 .venv/bin/python -I build_spots.py london                            # everything, ~11 min, ~6 GB RAM
+.venv/bin/python -I build_spots.py london --reuse                    # re-rank and re-name only, ~1 min
 
 .venv/bin/python -m pytest -q
 ```
