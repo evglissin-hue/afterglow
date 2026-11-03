@@ -51,7 +51,7 @@ export default function SpotDetails({ tile, id }: { tile: string; id: string }) 
   }, [tile, id]);
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pt-5 pb-14">
+    <main className="mx-auto w-full max-w-md px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-14">
       <Link href="/map" className="inline-flex items-center gap-1.5 text-sm text-mist hover:text-ink">
         <ArrowLeft className="size-4" aria-hidden="true" />
         Map

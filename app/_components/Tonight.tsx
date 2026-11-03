@@ -20,6 +20,7 @@ import {
 import { getForecast, type Forecast } from "@/lib/forecast/getForecast";
 import type { Label, Reason } from "@/lib/forecast/score";
 import { BestNearYou } from "./BestNearYou";
+import { InstallApp } from "./InstallApp";
 import { ScoreDial } from "./ScoreDial";
 import { SkyStrip } from "./SkyStrip";
 import { SunCompass } from "./SunCompass";
@@ -27,7 +28,9 @@ import { usePlace, type Place } from "./usePlace";
 
 const CACHE_MS = 30 * 60 * 1000;
 
-type Loaded = { key: string; forecast?: Forecast; error?: string };
+type Loaded = { key: string; forecast?: Forecast; savedAt?: number; error?: string };
+/** A forecast, and when it was fetched if it's an older saved copy shown because a refresh failed. */
+type Fetched = { forecast: Forecast; savedAt?: number };
 
 const HERO_GRADIENTS: Record<Label, string> = {
   Poor: "linear-gradient(160deg, #1d2130 0%, #2b3041 55%, #3c3e4c 100%)",
@@ -51,26 +54,31 @@ const BEST_COLOR_HINT = {
 
 const placeKey = (p: Place) => `${p.lat.toFixed(1)},${p.lon.toFixed(1)}`;
 
-async function loadForecast(place: Place): Promise<Forecast> {
+async function loadForecast(place: Place): Promise<Fetched> {
   const storageKey = `afterglow:forecast:${placeKey(place)}`;
+  let cached: { savedAt: number; forecast: Forecast } | null = null;
   try {
-    const cached = JSON.parse(localStorage.getItem(storageKey) ?? "null") as
-      | { savedAt: number; forecast: Forecast }
-      | null;
-    const now = Date.now();
-    if (cached && now - cached.savedAt < CACHE_MS && now < Date.parse(cached.forecast.sun.lastLight)) {
-      return cached.forecast;
-    }
+    cached = JSON.parse(localStorage.getItem(storageKey) ?? "null");
   } catch {
     // Storage unavailable or corrupt: fetch fresh.
   }
-  const forecast = await getForecastWithFallback(place);
+  const now = Date.now();
+  const stillTonight = cached !== null && now < Date.parse(cached.forecast.sun.lastLight);
+  if (cached && stillTonight && now - cached.savedAt < CACHE_MS) return { forecast: cached.forecast };
+  let forecast: Forecast;
+  try {
+    forecast = await getForecastWithFallback(place);
+  } catch (error) {
+    // No signal (say, out in a park): an older forecast for tonight beats an error.
+    if (cached && stillTonight) return { forecast: cached.forecast, savedAt: cached.savedAt };
+    throw error;
+  }
   try {
     localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), forecast }));
   } catch {
     // Private mode or full storage: fine without a cache.
   }
-  return forecast;
+  return { forecast };
 }
 
 /**
@@ -128,7 +136,7 @@ export default function Tonight() {
     if (!place || !key) return;
     let cancelled = false;
     loadForecast(place).then(
-      (forecast) => !cancelled && setLoaded({ key, forecast }),
+      ({ forecast, savedAt }) => !cancelled && setLoaded({ key, forecast, savedAt }),
       (error: unknown) =>
         !cancelled && setLoaded({ key, error: error instanceof Error ? error.message : String(error) }),
     );
@@ -140,7 +148,7 @@ export default function Tonight() {
   const current = loaded && loaded.key === key ? loaded : null;
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pt-5 pb-14">
+    <main className="mx-auto w-full max-w-md px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-14">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Sunset className="size-5 text-ember" aria-hidden="true" />
@@ -165,8 +173,13 @@ export default function Tonight() {
       ) : current.error || !current.forecast ? (
         <ErrorCard message={current.error ?? "Something went wrong."} onRetry={() => setAttempt((a) => a + 1)} />
       ) : (
-        <ForecastView forecast={current.forecast} now={now} place={place!} />
+        <>
+          {current.savedAt && <SavedNote savedAt={current.savedAt} onRetry={() => setAttempt((a) => a + 1)} />}
+          <ForecastView forecast={current.forecast} now={now} place={place!} />
+        </>
       )}
+
+      <InstallApp />
 
       <footer className="mt-10 space-y-2 text-xs leading-relaxed text-dusk">
         <p>Forecasts are best guesses. Cloud forecasts can be wrong.</p>
@@ -235,6 +248,19 @@ function LoadingCard({ locating }: { locating: boolean }) {
       </div>
       <p className="mt-5 text-sm text-mist">{locating ? "Finding you…" : "Checking the sky along the sunset line…"}</p>
     </div>
+  );
+}
+
+function SavedNote({ savedAt, onRetry }: { savedAt: number; onRetry: () => void }) {
+  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(savedAt);
+  return (
+    <p className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-mist" role="status">
+      <span>Couldn&apos;t refresh. Showing the forecast from {time}.</span>
+      <button type="button" onClick={onRetry} className="inline-flex shrink-0 items-center gap-1.5 text-ink hover:underline">
+        <RefreshCw className="size-3.5" aria-hidden="true" />
+        Retry
+      </button>
+    </p>
   );
 }
 

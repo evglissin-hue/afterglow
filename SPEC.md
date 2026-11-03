@@ -1,7 +1,9 @@
 # Afterglow: sunset forecast and neighborhood spots for London
 
-*Working name · Spec v0.5 · 3 Nov 2026 · M1 and M2 built*
+*Working name · Spec v0.6 · 3 Nov 2026 · M1 and M2 built; installable*
 
+> **v0.6:** the app installs to the home screen (manifest, icons, service worker), opens without a signal showing the last forecast, and is ready to show push alerts once a backend sends them. Map pins answer a tap anywhere within a fingertip's reach.
+>
 > **v0.5:** M2 is built: about 15,400 spots found across London, a map, "Best near you" and spot pages. The pipeline as built is described in §6.2.
 >
 > **v0.4:** an Android app is the long-term target, iPhone maybe later (§7.1).
@@ -81,7 +83,7 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 ## 4. Screens
 
 1. **Tonight** (home): score dial, look, confidence, times and "why"; then **Best near you**: the top 3 spots within my walking radius, each with walking time, "leave by" and tonight's view.
-2. **Map**: my walking radius as a circle, spot pins colored by tonight's view (open / partly / blocked), and tonight's sunset line from the selected spot. Tapping a pin opens a bottom sheet.
+2. **Map**: my walking radius as a circle, spot pins colored by tonight's view (open / partly / blocked), and tonight's sunset line from the selected spot. A tap picks the nearest pin within about 28 px (a fingertip; 14 px for a mouse), rings it and opens a bottom sheet; a tap on open map closes the sheet.
 3. **Spot**: photos (this time of year / all), the view profile with tonight's sunset marked, the months with an open view, info and access, and logs. Actions: Log a sunset, Directions (Google Maps or Citymapper), Report.
 4. **Add spot** (signed in)
 5. **Log a sunset** (signed in)
@@ -318,6 +320,8 @@ Android is the long-term target; iPhone maybe later. To keep the move cheap:
 - MapLibre has native Android and React Native versions.
 - Until then, the PWA installs on Android from Chrome, and web push works there without extra steps (unlike iPhone).
 
+**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. While Vercel Authentication is on, the manifest link carries cookies (`crossorigin="use-credentials"`); the iPhone home-screen app keeps its own cookies, so it may ask for the Vercel login again.
+
 When the time comes, there are two routes:
 
 1. **Wrap the PWA for the Play Store** (a Trusted Web Activity): days of work, same app.
@@ -384,8 +388,8 @@ Spot pipeline, map with walking radius, "Best near you" on the Tonight screen, a
 Supabase, Google sign-in, add a spot (compass + wedge), log a sunset with photos and the view answer, spot galleries ("this time of year"), reports and admin page, delete account.
 *Done when:* on a phone, a signed-in user can add a spot and a log with photos, other people see them, and three reports hide an item.
 
-**M4: Alerts**
-Installable PWA (manifest + service worker), push opt-in and settings, and the 15-minute job (send due alerts, save the daily pre-sunset forecast).
+**M4: Alerts** · **Installable app built 3 Nov 2026**
+Installable PWA (manifest + service worker; built, §7.1), push opt-in and settings, and the 15-minute job (send due alerts, save the daily pre-sunset forecast).
 *Done when:* a test user gets exactly one alert on a day that clears their threshold, at their chosen time, naming the best spot within their walking radius, on Android Chrome and on an iPhone with the app on the home screen.
 
 **Later**

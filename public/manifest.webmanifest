@@ -1,0 +1,28 @@
+{
+  "id": "/",
+  "name": "Afterglow: sunset forecast",
+  "short_name": "Afterglow",
+  "description": "Will tonight's sunset be worth stepping out for, and where's the best place to watch it within a short walk?",
+  "lang": "en-GB",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d0b14",
+  "theme_color": "#0d0b14",
+  "categories": ["weather", "lifestyle"],
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Spots map",
+      "short_name": "Map",
+      "description": "Sunset spots near you",
+      "url": "/map",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
