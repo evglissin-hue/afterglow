@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getPosition } from "suncalc";
 import {
+  ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleMinus,
@@ -20,6 +21,7 @@ import type { Reason } from "@/lib/forecast/score";
 import { BestNearYou } from "./BestNearYou";
 import { CloudSection } from "./CloudSection";
 import { InstallApp } from "./InstallApp";
+import { PlaceSearch } from "./PlaceSearch";
 import { ScoreDial } from "./ScoreDial";
 import { SkyBackdrop } from "./SkyBackdrop";
 import { FORECAST_KEY } from "./forecastCache";
@@ -123,7 +125,7 @@ function useSkyPhase(now: Date | null, place: Place | null, forecast: Forecast |
 }
 
 export default function Tonight() {
-  const { place, locate, chooseLondon } = usePlace();
+  const { place, locate, chooseLondon, choose } = usePlace();
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const now = useNow();
@@ -167,7 +169,7 @@ export default function Tonight() {
         </nav>
       </header>
 
-      <LocationRow place={place} onUseDevice={locate} onUseLondon={chooseLondon} />
+      <LocationRow place={place} onUseDevice={locate} onUseLondon={chooseLondon} onChoose={choose} />
 
       {!current ? (
         <LoadingCard locating={!place} />
@@ -200,37 +202,57 @@ function LocationRow({
   place,
   onUseDevice,
   onUseLondon,
+  onChoose,
 }: {
   place: Place | null;
   onUseDevice: () => void;
   onUseLondon: () => void;
+  onChoose: (place: Place) => void;
 }) {
+  const [searching, setSearching] = useState(false);
+  const label = !place
+    ? "Finding you…"
+    : place.source === "device"
+      ? "Near you"
+      : place.source === "search" && place.name
+        ? place.name
+        : "Central London";
+
   return (
-    <div className="mt-3 mb-4 flex items-center gap-2 text-sm text-mist">
-      <MapPin className="size-4 shrink-0" aria-hidden="true" />
-      {!place ? (
-        <span>Finding you…</span>
-      ) : place.source === "device" ? (
-        <>
-          <span>Near you</span>
-          <span aria-hidden="true">·</span>
-          <button type="button" onClick={onUseLondon} className="underline underline-offset-2 hover:text-ink">
-            Use central London
-          </button>
-        </>
-      ) : (
-        <>
-          <span>Central London</span>
-          <span aria-hidden="true">·</span>
-          <button
-            type="button"
-            onClick={onUseDevice}
-            className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-ink"
-          >
-            <LocateFixed className="size-3.5" aria-hidden="true" />
-            Use my location
-          </button>
-        </>
+    <div className="mt-2 mb-3 flex flex-wrap items-center gap-x-2 text-sm text-mist">
+      <button
+        type="button"
+        onClick={() => setSearching(true)}
+        className="-ml-1 inline-flex min-h-11 max-w-[60%] items-center gap-1.5 rounded-full px-1 hover:text-ink"
+        aria-label={`Place: ${label}. Change`}
+      >
+        <MapPin className="size-4 shrink-0" aria-hidden="true" />
+        <span className="truncate">{label}</span>
+        <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+      </button>
+      {place && place.source !== "device" && (
+        <button type="button" onClick={onUseDevice} className="inline-flex min-h-11 items-center gap-1 underline underline-offset-2 hover:text-ink">
+          <LocateFixed className="size-3.5" aria-hidden="true" />
+          Use my location
+        </button>
+      )}
+      {place?.source === "device" && (
+        <button type="button" onClick={onUseLondon} className="min-h-11 underline underline-offset-2 hover:text-ink">
+          Use central London
+        </button>
+      )}
+      {searching && (
+        <PlaceSearch
+          onClose={() => setSearching(false)}
+          onUseDevice={() => {
+            setSearching(false);
+            onUseDevice();
+          }}
+          onChoose={(next) => {
+            setSearching(false);
+            onChoose(next);
+          }}
+        />
       )}
     </div>
   );

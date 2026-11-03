@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export type Place = { lat: number; lon: number; source: "device" | "default" };
+/** Where to show the forecast and spots for: the phone's location, central London, or a place searched for. */
+export type Place = { lat: number; lon: number; source: "device" | "default" | "search"; name?: string };
 
 export const CENTRAL_LONDON = { lat: 51.5072, lon: -0.1276 };
 const PLACE_KEY = "afterglow:place";
@@ -60,7 +61,7 @@ export function usePlace() {
   }, [locate]);
 
   const chooseLondon = useCallback(() => setPlace({ ...CENTRAL_LONDON, source: "default" }), [setPlace]);
-  return { place, locate, chooseLondon };
+  return { place, locate, chooseLondon, choose: setPlace };
 }
 
 /** How far the visitor is happy to walk, in minutes. */

@@ -86,3 +86,54 @@ body {
     filter: drop-shadow(0 0 28px var(--score-glow));
   }
 }
+
+/* Map markers (SpotMap.tsx): numbered top-3 badges, a 44 px tap target around a 26 px badge */
+.rank-badge {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.rank-badge > span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  border: 2px solid #0d0b14;
+  background: var(--badge);
+  color: #1a1320;
+  font: 600 13px/1 var(--font-sans);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--badge) 70%, transparent);
+}
+.rank-badge[data-selected="true"] > span {
+  box-shadow:
+    0 0 0 3px #fff7ec,
+    0 0 18px color-mix(in srgb, var(--badge) 80%, transparent);
+}
+.sun-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.sun-marker-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #ffd36b;
+  box-shadow: 0 0 16px 6px rgba(255, 195, 92, 0.55);
+}
+.sun-marker-label {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(13, 11, 20, 0.8);
+  color: #ffd9a0;
+  font: 500 11px/1.4 var(--font-sans);
+  white-space: nowrap;
+}
