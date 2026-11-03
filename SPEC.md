@@ -1,7 +1,9 @@
 # Afterglow: sunset forecast and neighborhood spots for London
 
-*Working name · Spec v0.4 · 3 Nov 2026 · M1 built*
+*Working name · Spec v0.5 · 3 Nov 2026 · M1 and M2 built*
 
+> **v0.5:** M2 is built: about 19,000 spots found across London, a map, "Best near you" and spot pages. The pipeline as built is described in §6.2.
+>
 > **v0.4:** an Android app is the long-term target, iPhone maybe later (§7.1).
 >
 > **v0.3:** M1 is built. Forecast details are updated from real data: the three weather models, a longer clear-sky color window, and a rule so a poor score never promises colors. The forecast now runs in the visitor's browser (§5.8).
@@ -218,24 +220,24 @@ The browser computes the forecast itself, calling Open-Meteo directly, so each v
 
 1. **Auto-found** (the main source): computed for all of Greater London by the spot pipeline below. They're labeled "auto-found" until someone logs a sunset there.
 2. **Added by people**, from M3.
-3. **A few well-known viewpoints** for when you do want to go further: Waterloo Bridge, Primrose Hill, Parliament Hill, Richmond Hill, Greenwich Park and Sky Garden. These are not the focus.
+3. **Viewpoints and rooftops** already tagged in OpenStreetMap, for when you do want to go further. These are not the focus.
 
 ### 6.2 The spot pipeline
 
-A Python script that runs weekly in GitHub Actions (or here):
+Python in `pipeline/`, documented in `pipeline/README.md`. A full London run takes about 13 minutes; running it weekly in GitHub Actions is a later option.
 
-1. **Height map:** a 5 m grid of Greater London. Ground height comes from Ordnance Survey Terrain 50. Buildings come from OpenStreetMap, using the height tag, else floors × 3 m, else 9 m. Trees: woods and tree rows count as 15 m, single trees as 12 m.
-2. **Candidates:** public places with open sky to the west:
-   - the east side of parks, commons, playing fields and heaths, looking west across them
-   - waterside: the Thames, canals, reservoirs and lakes where the water stretches west
+1. **Height map:** a 5 m grid covering London plus 3 km. Ground height comes from Ordnance Survey Terrain 50. Buildings come from OpenStreetMap (BBBike's London extract), using the height tag, else floors × 3 m, else a typical height for the building type. Woods and tree rows count as 15 m and 12 m, single trees as 12 m.
+2. **Candidates:** public places likely to have open sky to the west:
+   - a 40 m grid inside parks, commons, playing fields and heaths; the best points tend to be on the east side, looking across
+   - paths beside the Thames, canals, reservoirs and lakes, every 30 m
    - bridges and footbridges over water or railways
    - long straight streets that point west
-   - local high ground, and OpenStreetMap viewpoints
+   - OpenStreetMap viewpoints, including rooftops
 
    Private land, school grounds and golf courses are skipped.
-3. **View profile:** from eye height (1.6 m, or +8 m on bridges), trace a ray every 2° from 220° to 320°, out to 3 km. Record the highest angle anything rises above the horizon in each direction.
-4. **Thin out:** keep at most the 2 best spots per ~400 m square, so each neighborhood has a few options without clutter.
-5. **Output:** a spots data file with profiles. The app ships it in M2, and M3 moves it into the database.
+3. **View profile:** from eye height (1.6 m; bridges +1 m; rooftops on top of the building), a ray every 2° from 220° to 320°, out to 3 km, records the highest angle anything rises above the horizon.
+4. **Score and thin out:** score how often through the year the sunset is in view, plus how much western sky is open. Keep the best: at most 2 per ~400 m square, and at most 6 per park, 350 m apart.
+5. **Output:** JSON tiles of about 5.5 km plus an index, in `public/data/spots/`. The app loads only the tiles near you. M3 moves spots into the database.
 
 ### 6.3 Using the view profile
 
@@ -250,7 +252,7 @@ For any date, look up the obstacle angle in the sunset direction:
 
 - **Sun hides at:** the moment the sun's height drops below the obstacle angle in its direction.
 - Ranking also counts how much sky is open within ±20° of the sunset direction. The best colors come after sunset and high in the sky, so "sky view" spots still work for color.
-- **Street henge:** for a street that points west, the two dates a year when the sun sets straight down it, London's own Manhattanhenge.
+- **Street henge:** for a street that points west, the two dates a year when the sun sets straight down it, London's own Manhattanhenge. Street spots only show on evenings when the sun sets (nearly) down them.
 
 Sunset direction in London on the 15th of each month:
 
@@ -374,8 +376,8 @@ forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, c
 Forecast engine with tests, `/api/forecast`, the forecast part of the Tonight screen, About page. Deployable as is.
 *Done when:* score, look and times show for any location, and tests pass (sun times within 2 min of reference values, plus scoring scenarios for clear sky, low overcast, blocked horizon, mid-cloud canvas, haze and rain clearing).
 
-**M2: Spots near you**
-Spot pipeline, map with walking radius, "Best near you" on the Tonight screen, spot pages with the view profile, and the few well-known viewpoints.
+**M2: Spots near you** · **Built 3 Nov 2026; waiting on the Hoxton check**
+Spot pipeline, map with walking radius, "Best near you" on the Tonight screen, and spot pages with the view profile.
 *Done when:* spots cover all of Greater London, and in the test neighborhood (Hoxton) at least 8 of 10 checked spots match reality (open / partly / blocked).
 
 **M3: Contribute**
@@ -405,6 +407,6 @@ Installable PWA (manifest + service worker), push opt-in and settings, and the 1
 ## 12. What I need from you
 
 - **Done:** network access, the GitHub repo, and the test neighborhood (Hoxton).
-- **Now:** try the M1 Tonight screen and say what to change.
+- **Now:** check a handful of the spots the app finds near you, against what you know of them.
 - **To put it online:** a free Vercel account with the repo imported. It needs no settings or keys yet.
 - **Before M3:** a free Supabase project and a Google sign-in client. I'll write step-by-step instructions when we get there.

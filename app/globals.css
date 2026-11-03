@@ -23,3 +23,25 @@ body {
     var(--color-night);
   color: var(--color-ink);
 }
+
+/* MapLibre controls in the dark theme */
+.maplibregl-ctrl-group {
+  background: rgba(13, 11, 20, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+.maplibregl-ctrl-group .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.maplibregl-ctrl-attrib {
+  background: rgba(13, 11, 20, 0.75) !important;
+  color: #8a8194;
+}
+.maplibregl-ctrl-attrib a {
+  color: #b8aebf !important;
+}
+.maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}

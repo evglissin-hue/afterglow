@@ -39,6 +39,14 @@ export default function AboutPage() {
           High cloud stays lit the longest.
         </Section>
 
+        <Section title="Finding spots near you">
+          Afterglow builds a height map of London from OpenStreetMap buildings and trees plus Ordnance Survey
+          terrain. From every park, canal path, bridge and west-facing street it works out what rises above the
+          horizon toward the sunset, and how that changes through the year as the sunset moves between south-west
+          in December and north-west in June. Trees and building heights are often missing from the map, so check a
+          spot the first time you go.
+        </Section>
+
         <Section title="Air and rain">
           Haze and smoke mute the colors. Rain clearing before sunset is often a good sign.
         </Section>
@@ -55,7 +63,8 @@ export default function AboutPage() {
             Open-Meteo.com
           </a>{" "}
           (CC BY 4.0). Air quality from the Copernicus Atmosphere Monitoring Service via Open-Meteo. Sun times
-          from SunCalc.
+          from SunCalc. Map data © OpenStreetMap contributors (ODbL); map tiles by OpenFreeMap. Contains OS data ©
+          Crown copyright and database right 2026 (Open Government Licence).
         </Section>
 
         <Section title="Privacy">

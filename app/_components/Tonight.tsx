@@ -9,6 +9,7 @@ import {
   Clock,
   Info,
   LocateFixed,
+  Map as MapIcon,
   MapPin,
   Moon,
   RefreshCw,
@@ -18,14 +19,14 @@ import {
 } from "lucide-react";
 import { getForecast, type Forecast } from "@/lib/forecast/getForecast";
 import type { Label, Reason } from "@/lib/forecast/score";
+import { BestNearYou } from "./BestNearYou";
 import { ScoreDial } from "./ScoreDial";
 import { SkyStrip } from "./SkyStrip";
 import { SunCompass } from "./SunCompass";
+import { usePlace, type Place } from "./usePlace";
 
-const CENTRAL_LONDON = { lat: 51.5072, lon: -0.1276 };
 const CACHE_MS = 30 * 60 * 1000;
 
-type Place = { lat: number; lon: number; source: "device" | "default" };
 type Loaded = { key: string; forecast?: Forecast; error?: string };
 
 const HERO_GRADIENTS: Record<Label, string> = {
@@ -101,18 +102,6 @@ function friendlyError(message: string): string {
   return message;
 }
 
-function locate(onPlace: (place: Place) => void) {
-  if (!("geolocation" in navigator)) {
-    onPlace({ ...CENTRAL_LONDON, source: "default" });
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => onPlace({ lat: pos.coords.latitude, lon: pos.coords.longitude, source: "device" }),
-    () => onPlace({ ...CENTRAL_LONDON, source: "default" }),
-    { enableHighAccuracy: false, timeout: 10_000, maximumAge: 10 * 60_000 },
-  );
-}
-
 /** The current time, refreshed every 30 s. Null until mounted, so nothing time-based renders on the server. */
 function useNow(): Date | null {
   const [now, setNow] = useState<Date | null>(null);
@@ -129,15 +118,10 @@ function useNow(): Date | null {
 }
 
 export default function Tonight() {
-  const [place, setPlace] = useState<Place | null>(null);
+  const { place, locate, chooseLondon } = usePlace();
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const now = useNow();
-
-  useEffect(() => {
-    const id = setTimeout(() => locate(setPlace), 0);
-    return () => clearTimeout(id);
-  }, []);
 
   const key = place ? `${placeKey(place)}#${attempt}` : null;
   useEffect(() => {
@@ -162,27 +146,26 @@ export default function Tonight() {
           <Sunset className="size-5 text-ember" aria-hidden="true" />
           Afterglow
         </div>
-        <Link
-          href="/about"
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-mist hover:bg-white/5"
-        >
-          <Info className="size-4" aria-hidden="true" />
-          How it works
-        </Link>
+        <nav className="flex items-center gap-1 text-sm text-mist">
+          <Link href="/map" className="flex items-center gap-1.5 rounded-full px-3 py-1.5 hover:bg-white/5">
+            <MapIcon className="size-4" aria-hidden="true" />
+            Map
+          </Link>
+          <Link href="/about" className="flex items-center gap-1.5 rounded-full px-3 py-1.5 hover:bg-white/5">
+            <Info className="size-4" aria-hidden="true" />
+            About
+          </Link>
+        </nav>
       </header>
 
-      <LocationRow
-        place={place}
-        onUseDevice={() => locate(setPlace)}
-        onUseLondon={() => setPlace({ ...CENTRAL_LONDON, source: "default" })}
-      />
+      <LocationRow place={place} onUseDevice={locate} onUseLondon={chooseLondon} />
 
       {!current ? (
         <LoadingCard locating={!place} />
       ) : current.error || !current.forecast ? (
         <ErrorCard message={current.error ?? "Something went wrong."} onRetry={() => setAttempt((a) => a + 1)} />
       ) : (
-        <ForecastView forecast={current.forecast} now={now} />
+        <ForecastView forecast={current.forecast} now={now} place={place!} />
       )}
 
       <footer className="mt-10 space-y-2 text-xs leading-relaxed text-dusk">
@@ -273,7 +256,7 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
   );
 }
 
-function ForecastView({ forecast, now }: { forecast: Forecast; now: Date | null }) {
+function ForecastView({ forecast, now, place }: { forecast: Forecast; now: Date | null; place: Place }) {
   const { sun, location } = forecast;
   const format = useMemo(() => {
     const fmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: location.timezone });
@@ -317,6 +300,8 @@ function ForecastView({ forecast, now }: { forecast: Forecast; now: Date | null 
         />
         <TimeTile icon={<Moon className="size-4" />} label="Last light" value={format(sun.lastLight)} />
       </section>
+
+      <BestNearYou place={place} forecast={forecast} now={now} />
 
       <section className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <SunCompass bearing={sun.bearing} />

@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# spot pipeline: raw downloads, working files, python env
+/pipeline/raw/
+/pipeline/work/
+/pipeline/.venv/
+__pycache__/
+
+# copied from node_modules by scripts/copy-maplibre-worker.mjs
+/public/maplibre/
+.pytest_cache/
