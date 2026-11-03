@@ -73,3 +73,35 @@ export function nextSunset(now: Date, lat: number, lon: number): SunEvents | nul
   if (today && now.getTime() <= today.lastLight.getTime()) return today;
   return sunEvents(new Date(now.getTime() + 24 * 60 * 60 * 1000), lat, lon);
 }
+
+/**
+ * Apparent altitude of the sun's centre at sunset as SunCalc times it (top edge on the horizon), degrees.
+ * Above this, the sun is up.
+ */
+export const SUN_UP_ALTITUDE = -0.35;
+
+/** Where the sun is at a moment: compass bearing and apparent altitude above the horizon, degrees. */
+export interface SunPosition {
+  time: Date;
+  azimuth: number;
+  altitude: number;
+}
+
+/**
+ * The sun's path across the sky from `from` to `to`: a point at each end, and in between every
+ * `stepMinutes` on the clock (16:05, 16:10, …). Empty when `to` is before `from`.
+ */
+export function sunPath(from: Date, to: Date, lat: number, lon: number, stepMinutes = 5): SunPosition[] {
+  const start = from.getTime();
+  const end = to.getTime();
+  if (!(end >= start) || !(stepMinutes > 0)) return [];
+  const step = stepMinutes * 60_000;
+  const instants = [start];
+  for (let t = Math.floor(start / step) * step + step; t < end; t += step) instants.push(t);
+  if (end > start) instants.push(end);
+  return instants.map((t) => {
+    const time = new Date(t);
+    const { azimuth, altitude } = getPosition(time, lat, lon);
+    return { time, azimuth, altitude };
+  });
+}
