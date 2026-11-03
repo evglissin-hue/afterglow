@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { Forecast } from "@/lib/forecast/getForecast";
 import type { Reason } from "@/lib/forecast/score";
+import { sunEvents } from "@/lib/sun";
 import { BestNearYou } from "./BestNearYou";
 import { CloudSection } from "./CloudSection";
 import { HengeNights } from "./HengeNights";
@@ -351,9 +352,15 @@ function ForecastView({
   );
 }
 
-/** After sunset, until the forecast rolls over to tomorrow, offer to log it. */
+/**
+ * Offer to log today's sunset from when it happens until six hours later, even after the screen has
+ * moved on to tomorrow's forecast.
+ */
 function isLogTime(forecast: Forecast, now: Date | null): boolean {
-  return now !== null && now.getTime() >= Date.parse(forecast.sun.sunset);
+  if (!now) return false;
+  const today = sunEvents(now, forecast.location.lat, forecast.location.lon);
+  const since = today ? now.getTime() - today.sunset.getTime() : -1;
+  return since >= 0 && since <= 6 * 3_600_000;
 }
 
 /** Live mode is offered from half an hour before sunset until last light. */
