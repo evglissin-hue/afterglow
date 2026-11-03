@@ -23,28 +23,37 @@ const HOURLY = [
 ] as const;
 type HourlyVariable = (typeof HOURLY)[number];
 
-// Unix times avoid timezone parsing; 7 past hours cover "rain in the last 6 h",
-// and 36 ahead reach tomorrow's sunset once today's has passed.
-const COMMON = { timeformat: "unixtime", timezone: "auto", past_hours: "7", forecast_hours: "36" };
+// Unix times avoid timezone parsing; 7 past hours cover "rain in the last 6 h".
+const COMMON = { timeformat: "unixtime", timezone: "auto", past_hours: "7" };
+
+/** Enough to reach tomorrow's sunset once today's has passed. */
+const DEFAULT_FORECAST_HOURS = 36;
+
+export interface RequestOptions {
+  /** Hours of forecast to ask for, counted from the current hour. Default 36. */
+  forecastHours?: number;
+}
 
 /** One request for every sample point and every model. */
-export function forecastUrl(points: LatLon[]): string {
+export function forecastUrl(points: LatLon[], { forecastHours = DEFAULT_FORECAST_HOURS }: RequestOptions = {}): string {
   const params = new URLSearchParams({
     latitude: points.map((p) => p.lat.toFixed(3)).join(","),
     longitude: points.map((p) => p.lon.toFixed(3)).join(","),
     hourly: HOURLY.join(","),
     models: MODELS.join(","),
     ...COMMON,
+    forecast_hours: String(forecastHours),
   });
   return `https://api.open-meteo.com/v1/forecast?${params}`;
 }
 
-export function airQualityUrl(point: LatLon): string {
+export function airQualityUrl(point: LatLon, { forecastHours = DEFAULT_FORECAST_HOURS }: RequestOptions = {}): string {
   const params = new URLSearchParams({
     latitude: point.lat.toFixed(3),
     longitude: point.lon.toFixed(3),
     hourly: "aerosol_optical_depth",
     ...COMMON,
+    forecast_hours: String(forecastHours),
   });
   return `https://air-quality-api.open-meteo.com/v1/air-quality?${params}`;
 }
@@ -115,6 +124,12 @@ export function parseAirQuality(json: unknown): AirSeries | null {
   const hourly = (json as RawLocation | null)?.hourly;
   const aod = hourly?.aerosol_optical_depth;
   return hourly?.time && aod ? { time: hourly.time, aod } : null;
+}
+
+/** What the score reads: cloud along the sunset line, and air quality at the observer when there is some. */
+export interface Weather {
+  forecast: ParsedForecast;
+  air: AirSeries | null;
 }
 
 /** Linear interpolation of an hourly series at unix time `t` (seconds). */

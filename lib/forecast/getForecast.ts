@@ -1,32 +1,17 @@
-import { compassPoint, destination, roundTo, type LatLon } from "@/lib/geo";
+import { compassPoint, roundTo, type LatLon } from "@/lib/geo";
 import { nextSunset, type CloudLayer } from "@/lib/sun";
-import {
-  MODELS,
-  MODEL_NAMES,
-  airQualityUrl,
-  forecastUrl,
-  hourContaining,
-  parseAirQuality,
-  parseForecast,
-  sumBefore,
-  valueAt,
-  type AirSeries,
-  type ModelId,
-  type PointSeries,
-} from "@/lib/weather/openmeteo";
-import { SAMPLE_KM, config } from "./config";
+import { WeatherUnavailableError, fetchWeather, type FetchWeatherOptions } from "@/lib/weather/fetch";
+import { MODEL_NAMES, type ModelId, type Weather } from "@/lib/weather/openmeteo";
+import { sampleLine, scoreEvening } from "./evening";
 import {
   LOOKS,
-  combineModels,
   dominantLayer,
-  scoreSunset,
   type Confidence,
   type Factors,
   type Label,
   type Look,
   type Reason,
   type SamplePoint,
-  type ScoreInput,
 } from "./score";
 
 /** Forecasts are computed on a grid of this many degrees, so nearby requests share results. */
@@ -80,45 +65,24 @@ interface Options {
 /** Tonight's sunset forecast for a location. Works in the browser and on the server. */
 export async function getForecast(lat: number, lon: number, options: Options = {}): Promise<Forecast> {
   const now = options.now ?? new Date();
-  const doFetch = options.fetch ?? fetch;
-  const origin = { lat: roundTo(lat, GRID_DEG), lon: roundTo(lon, GRID_DEG) };
+  const origin = gridPoint(lat, lon);
 
   const sun = nextSunset(now, origin.lat, origin.lon);
   if (!sun) throw new ForecastError("no-sunset", "The sun doesn't set here today.");
 
-  const coords = SAMPLE_KM.map((km) => {
-    const p = destination(origin, sun.bearing, km);
-    return { lat: roundTo(p.lat, 0.001), lon: roundTo(p.lon, 0.001) };
-  });
-
-  const [weather, air] = await Promise.allSettled([
-    getJson(doFetch, forecastUrl(coords)),
-    getJson(doFetch, airQualityUrl(origin)),
-  ]);
-  if (weather.status === "rejected") {
-    throw new ForecastError("weather-unavailable", `Weather data unavailable: ${messageOf(weather.reason)}`);
-  }
-  const parsed = parseForecast(weather.value, coords.length);
-  const airSeries = air.status === "fulfilled" ? parseAirQuality(air.value) : null;
-
-  const t = sun.sunset.getTime() / 1000 + config.evalOffsetMin * 60;
-  const results = MODELS.flatMap((model) => {
-    const series = parsed.models[model];
-    const input = series ? scoreInputFor(series, coords, airSeries, t) : null;
-    return input ? [{ model, result: scoreSunset(input), input }] : [];
-  });
-  if (results.length === 0) {
+  const coords = sampleLine(origin, sun.bearing);
+  const weather = await weatherFor(coords, origin, { fetch: options.fetch });
+  const evening = scoreEvening(weather, coords, sun.sunset, now);
+  if (!evening) {
     throw new ForecastError("weather-incomplete", "No weather model covers tonight's sunset yet.");
   }
 
-  const leadHours = (sun.sunset.getTime() - now.getTime()) / 3_600_000;
-  const combined = combineModels(results, leadHours);
-  const shown = results.find((r) => r.model === combined.primary.model)!;
+  const { results, combined, shown, leadHours } = evening;
   const layer = dominantLayer(shown.result.factors);
   const window = sun.windows[layer];
 
   return {
-    location: { ...origin, timezone: parsed.timezone },
+    location: { ...origin, timezone: weather.forecast.timezone },
     sun: {
       goldenStart: sun.goldenStart.toISOString(),
       sunset: sun.sunset.toISOString(),
@@ -143,50 +107,19 @@ export async function getForecast(lat: number, lon: number, options: Options = {
   };
 }
 
-function scoreInputFor(
-  series: PointSeries[],
-  coords: LatLon[],
-  air: AirSeries | null,
-  t: number,
-): ScoreInput | null {
-  const points: SamplePoint[] = [];
-  for (let i = 0; i < series.length; i++) {
-    const s = series[i];
-    const low = valueAt(s.time, s.low, t);
-    const mid = valueAt(s.time, s.mid, t);
-    const high = valueAt(s.time, s.high, t);
-    if (low == null || mid == null || high == null) return null;
-    points.push({ km: SAMPLE_KM[i], ...coords[i], low: low / 100, mid: mid / 100, high: high / 100 });
-  }
-
-  const here = series[SAMPLE_KM.indexOf(0)];
-  const visibility = valueAt(here.time, here.visibility, t);
-  return {
-    points,
-    observer: {
-      visibilityKm: visibility == null ? null : visibility / 1000,
-      humidity: valueAt(here.time, here.humidity, t),
-      rainNow: hourContaining(here.time, here.precipitation, t) ?? 0,
-      rainPrev6h: sumBefore(here.time, here.precipitation, t, 6),
-      aod: air ? valueAt(air.time, air.aod, t) : null,
-    },
-  };
+/** A location snapped to the forecast grid. */
+export function gridPoint(lat: number, lon: number): LatLon {
+  return { lat: roundTo(lat, GRID_DEG), lon: roundTo(lon, GRID_DEG) };
 }
 
-async function getJson(doFetch: typeof fetch, url: string): Promise<unknown> {
-  let response: Response;
+/** Weather for the sample points and the observer; a failed request becomes a ForecastError. */
+export async function weatherFor(coords: LatLon[], observer: LatLon, options: FetchWeatherOptions): Promise<Weather> {
   try {
-    response = await doFetch(url);
-  } catch {
-    // Network failure, or a browser hiding an error response that lacks CORS headers.
-    throw new Error("couldn't reach the weather service");
+    return await fetchWeather(coords, observer, options);
+  } catch (error) {
+    if (error instanceof WeatherUnavailableError) {
+      throw new ForecastError("weather-unavailable", `Weather data unavailable: ${error.message}`);
+    }
+    throw error;
   }
-  const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const reason = (body as { reason?: unknown } | null)?.reason;
-    throw new Error(typeof reason === "string" ? reason : `HTTP ${response.status}`);
-  }
-  return body;
 }
-
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
