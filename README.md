@@ -12,6 +12,8 @@ Sunset forecast and neighborhood sunset spots for London. A hobby project; the p
 - Lists the best spots within a short walk and shows them on a map, colored by tonight's view toward the sunset. About 15,400 spots across London were found automatically from map and terrain data (see `pipeline/`).
 - Each spot has a page with what's in the way toward the sunset, the sun's path tonight, and which months the sunset is in view.
 - Installs to the home screen as an app (Chrome: "Install"; iPhone: Share → Add to Home Screen). Without a signal it opens with the last saved forecast.
+- The Tonight screen sits on a sky tinted by tonight's likely look and the time of day, with a sunset timeline, a side view of the cloud along the sunset line, and street henge nights near you.
+- Live mode during the sunset, a share picture, favorites, map filters and place search.
 
 ## Run it
 

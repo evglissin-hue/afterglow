@@ -69,7 +69,9 @@ export default function AboutPage() {
 
         <Section title="Privacy">
           Your location stays in your browser. To get the forecast, your browser asks Open-Meteo for a location
-          rounded to roughly 10 km, plus points along the sunset line. Nothing is stored on our servers.
+          rounded to roughly 10 km, plus points along the sunset line. Place search sends what you type to Photon
+          (komoot&apos;s geocoder, with OpenStreetMap data). Favorites and sunset ratings stay on your phone. Nothing is
+          stored on our servers.
         </Section>
       </div>
     </main>

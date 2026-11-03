@@ -1,7 +1,9 @@
 # Afterglow: sunset forecast and neighborhood spots for London
 
-*Working name · Spec v0.6 · 3 Nov 2026 · M1 and M2 built; installable*
+*Working name · Spec v0.7 · 3 Nov 2026 · M1 and M2 built; installable; redesigned*
 
+> **v0.7:** a visual redesign and a first batch of extras, picked by the owner from a numbered list: a live sky, a glowing score, a sunset timeline, a cloud picture, serif titles; a "your view tonight" postcard per spot; a map with the top 3 numbered, a sunset beam, filters and place search; favorites; street henge nights; live mode during the sunset; a share picture (§4). In progress: alerts, a five-evening outlook, a compass mode. Logging sunsets with photos waits for accounts (M3).
+>
 > **v0.6:** the app installs to the home screen (manifest, icons, service worker), opens without a signal showing the last forecast, and is ready to show push alerts once a backend sends them. Map pins answer a tap anywhere within a fingertip's reach.
 >
 > **v0.5:** M2 is built: about 15,400 spots found across London, a map, "Best near you" and spot pages. The pipeline as built is described in §6.2.
@@ -82,16 +84,17 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 
 ## 4. Screens
 
-1. **Tonight** (home): score dial, look, confidence, times and "why"; then **Best near you**: the top 3 spots within my walking radius, each with walking time, "leave by" and tonight's view.
-2. **Map**: my walking radius as a circle, spot pins colored by tonight's view (open / partly / blocked), and tonight's sunset line from the selected spot. A tap picks the nearest pin within about 28 px (a fingertip; 14 px for a mouse), rings it and opens a bottom sheet; a tap on open map closes the sheet.
-3. **Spot**: photos (this time of year / all), the view profile with tonight's sunset marked, the months with an open view, info and access, and logs. Actions: Log a sunset, Directions (Google Maps or Citymapper), Report.
+1. **Tonight** (home), on a sky tinted by tonight's likely look and the time of day (daytime, the run-up to sunset, the afterglow, night with stars): a glowing score ring, the look in serif type, confidence; "go live" (from 30 min before sunset) and "share tonight"; a timeline of the sun's height from golden hour to last light with the best color window; then **Best near you**: the top 3 spots within my walking radius, numbered as on the map, each with walking time, "leave by" and tonight's view, plus my favorites; **street henge nights** within a 30-min walk in the next month; the sunset direction, "why", and the cloud along the sunset line drawn as a side view (numbers one tap away).
+2. **Map**: my walking radius as a circle, spot pins colored by tonight's view (open / partly / blocked), the top 3 numbered, favorites ringed, and a beam toward tonight's sunset from the selected spot (or me), with the sunset time at its end. A tap picks the nearest pin within about 28 px (a fingertip; 14 px for a mouse), rings it and opens a card with a small postcard of the view, a favorite star, Details and Directions; a tap on open map closes the card. Filter chips (sunset in view, open after dusk, kinds of spot) are remembered on the device. Place search (also on Tonight) plans for somewhere else.
+3. **Spot**: a "your view tonight" postcard: the spot's real skyline toward the sunset from its view profile (heights exaggerated, and labeled so) against tonight's colors, with the sun where it slips behind the skyline or sets; a favorite star; tonight's view, access; the next henge nights for streets; the months with an open view; the true-to-scale angle chart in a fold-out; Directions (Google Maps or Citymapper). Later: photos (this time of year / all), logs, Log a sunset, Report.
+3a. **Live** (`/live`): from 30 min before sunset to last light, a countdown through sunset, the best color window and last light, what to watch for tonight's look, a 1–5 rating, and share. Keeps the screen awake. Ratings stay on the phone until accounts exist.
 4. **Add spot** (signed in)
 5. **Log a sunset** (signed in)
 6. **Me**: home location, walking radius, my spots and logs, alert settings, sign out, delete account
 7. **Admin**: report queue (admin only)
 8. **About**: how the forecast and spot finding work, terms, privacy
 
-Look and feel: dark UI with warm sunset gradients, big tap targets, usable one-handed outdoors.
+Look and feel: dark UI on a sky that follows tonight's forecast, Geist for text and Instrument Serif for the big titles, a little film grain, big tap targets (44 px), usable one-handed outdoors. Mockups of the redesign: [Afterglow look ideas](https://claude.ai/artifact/4FmHva6Xkgps9AC9jy8Eej).
 
 ## 5. Forecast model (v1)
 
@@ -320,7 +323,7 @@ Android is the long-term target; iPhone maybe later. To keep the move cheap:
 - MapLibre has native Android and React Native versions.
 - Until then, the PWA installs on Android from Chrome, and web push works there without extra steps (unlike iPhone).
 
-**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. While Vercel Authentication is on, the manifest link carries cookies (`crossorigin="use-credentials"`); the iPhone home-screen app keeps its own cookies, so it may ask for the Vercel login again.
+**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/live`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. While Vercel Authentication is on, the manifest link carries cookies (`crossorigin="use-credentials"`); the iPhone home-screen app keeps its own cookies, so it may ask for the Vercel login again.
 
 When the time comes, there are two routes:
 
@@ -371,6 +374,7 @@ forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, c
 - EXIF time and location are read on the device first, only to prefill the log.
 - Limits: 5 photos per log, 30 a day per user. Supabase's free 1 GB holds roughly 2,500 photos.
 - Location is used on the device. The only stored location is the optional home location, rounded to ~1 km.
+- Favorites, map filters and live-mode ratings are kept on the device (localStorage) for now. Place search sends what you type to Photon (komoot's free geocoder, OpenStreetMap data).
 - Deleting an account removes its logs and photos. Spots it created stay, with no name attached.
 - Even a hobby site with public uploads can fall under UK GDPR and the Online Safety Act. The app includes report and takedown, account deletion, and short terms and privacy pages. Ofcom's guidance for small services is worth a skim before inviting strangers.
 
