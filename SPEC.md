@@ -1,8 +1,10 @@
 # Afterglow: sunset forecast and neighborhood spots for London
 
-*Working name · Spec v0.2 · 3 Nov 2026 · Draft for review*
+*Working name · Spec v0.3 · 3 Nov 2026 · M1 built*
 
-> **New in v0.2:** the focus is now neighborhood spots within a short walk, not destination viewpoints. Spots are found automatically all over London, each with a computed view toward the sunset (§6). Walking time and "leave by" are added, and the plan now has four milestones instead of three.
+> **v0.3:** M1 is built. Forecast details are updated from real data: the three weather models, a longer clear-sky color window, and a rule so a poor score never promises colors. The forecast now runs in the visitor's browser (§5.8).
+>
+> **v0.2:** the focus moved to neighborhood spots within a short walk, found automatically all over London, each with a computed view toward the sunset (§6).
 
 ## 1. What it is
 
@@ -97,7 +99,7 @@ The **best color window** depends on which clouds will catch the light. High clo
 |---|---|
 | High (cirrus) | 1.5°–3.5° below the horizon |
 | Mid (altocumulus) | 0.5°–2° below |
-| Clear sky | from sunset to 1° below; the pink "Belt of Venus" shows in the east |
+| Clear sky | from sunset to 3° below; the pink "Belt of Venus" shows in the east |
 
 Computed for London:
 
@@ -116,8 +118,8 @@ The sunset point swings ~80° over the year. The color window is longer near the
 
 - Forecast API, hourly: `cloud_cover_low`, `cloud_cover_mid`, `cloud_cover_high`, `visibility`, `relative_humidity_2m`, `precipitation`.
 - Air Quality API (CAMS), hourly: `aerosol_optical_depth` (haze, smoke, dust).
-- Models: `best_match`, plus up to three others (UK Met Office, ECMWF, DWD ICON) to measure agreement. Which of these give all three cloud layers for London is checked at build time.
-- Values are interpolated to the middle of the best color window.
+- Models: UK Met Office (`ukmo_seamless`), ECMWF (`ecmwf_ifs`) and DWD ICON (`icon_seamless`). All three give the three cloud layers for London (checked 3 Nov 2026). `best_match` is the Met Office model for the UK, so it isn't added separately.
+- Values are read 10 minutes after sunset, interpolated between hours.
 
 ### 5.3 Where to look: along the sunset line
 
@@ -169,11 +171,12 @@ The first rule that matches wins:
 1. Raining, or low cloud ≥ 85% overhead → **Grey**: "low cloud will hide it"
 2. gapBlock ≥ .75 → **Blocked**: "cloud bank toward the sunset"
 3. air < .6 → **Hazy and muted**: "maybe a red sun disc"
-4. canvas < .1 → **Clean gradient**: "orange horizon; turn around for the pink Belt of Venus"
-5. canvas ≥ .75 and gapBlock ≤ .3 → **Whole sky glow**
-6. Mostly high cloud and AOD < .2 → **Pastel pink and purple**
-7. Mostly mid cloud → **Fiery orange and red**
-8. Otherwise → **Golden to pink**
+4. Score is Poor anyway → whichever of Grey, Blocked or Hazy holds it back most, so a poor score never promises colors
+5. canvas < .1 → **Clean gradient**: "orange horizon; turn around for the pink Belt of Venus"
+6. canvas ≥ .75 and gapBlock ≤ .3 → **Whole sky glow**
+7. Mostly high cloud and AOD < .2 → **Pastel pink and purple**
+8. Mostly mid cloud → **Fiery orange and red**
+9. Otherwise → **Golden to pink**
 
 ### 5.6 Confidence
 
@@ -186,22 +189,26 @@ Score each model separately and show the median. Spread between models ≤ 15 �
 - After a few weeks: compare forecasts with ratings, tune the config, and add a simple "how we did" page.
 - The app says plainly that cloud forecasts can be wrong.
 
-### 5.8 API
+### 5.8 Where the forecast runs, and the API
 
-`GET /api/forecast?lat=51.507&lon=-0.128`
+The browser computes the forecast itself, calling Open-Meteo directly, so each visitor uses their own free quota. A shared IP can run out: the build container's did on 3 Nov. If the direct call fails, the browser falls back to `GET /api/forecast?lat=…&lon=…`, which runs the same code on the server and will also serve the alert job (M4). Locations are rounded to a 0.1° grid, and results are cached for 30 minutes (browser storage, and the CDN for the API).
 
 ```json
 {
-  "sun": { "sunset": "2026-11-03T16:30:00Z", "bearing": 246, "goldenStart": "…", "bestColor": ["…", "…"], "lastLight": "…" },
-  "score": 74, "label": "Great", "look": "fiery", "confidence": "medium",
-  "why": ["Mid-level cloud to catch the light", "Clear gap toward the sun", "Clean air"],
-  "factors": { "canvas": 0.55, "lowOver": 0.1, "gapBlock": 0.15, "aod": 0.12, "visibilityKm": 30, "humidity": 72, "rainNow": 0, "clearing": false },
-  "models": { "best_match": 74, "ukmo": 77, "ecmwf": 66 },
-  "path": [{ "km": 0, "lat": 51.507, "lon": -0.128, "low": 0.1, "mid": 0.4, "high": 0.3 }]
+  "location": { "lat": 51.5, "lon": -0.1, "timezone": "Europe/London" },
+  "sun": {
+    "goldenStart": "…", "sunset": "2026-11-03T16:29:54Z", "lastLight": "…", "bearing": 246, "compass": "WSW",
+    "bestColor": { "start": "…", "end": "…", "layer": "mid" }
+  },
+  "score": 7, "label": "Poor", "look": "grey", "lookTitle": "Grey", "lookText": "Low cloud is likely to hide it.",
+  "confidence": "medium", "spread": 29,
+  "why": [{ "text": "Cloud bank toward the sunset", "tone": "bad" }, { "text": "Clean air", "tone": "good" }],
+  "factors": { "canvas": 0.41, "lowOver": 0.88, "gapBlock": 0.61, "aod": 0.07, "visibilityKm": 33, "humidity": 75, "…": "…" },
+  "models": [{ "id": "ukmo_seamless", "name": "UK Met Office", "score": 5 }, { "id": "ecmwf_ifs", "name": "ECMWF", "score": 34 }],
+  "path": [{ "km": 0, "lat": 51.5, "lon": -0.1, "low": 0.9, "mid": 0.24, "high": 0 }],
+  "leadHours": 2.7, "generatedAt": "…"
 }
 ```
-
-Requests are rounded to a ~0.1° grid and cached for 30 minutes, so all of London needs only a few upstream calls an hour.
 
 ## 6. Spots
 
@@ -272,11 +279,12 @@ So a spot whose view is open from 225° to 260° has an open horizon from mid-Oc
 
 ```
 Phone browser: Next.js app (installable PWA)
+  ├─ forecast: computed in the browser from Open-Meteo (falls back to /api/forecast)
   ├─ map: MapLibre GL + OpenFreeMap tiles (free, no key)
   ├─ sun times and directions: SunCalc, on the device
   ├─ data: Supabase (Postgres, Auth, Storage), protected by row-level security
   └─ Next.js API routes on Vercel
-       ├─ /api/forecast  → Open-Meteo forecast + air quality, cached
+       ├─ /api/forecast  → the same forecast on the server: fallback, alert job, debugging
        ├─ /api/logs      → saves a log together with the current forecast
        └─ /api/cron      ← Supabase Cron, every 15 min → web push alerts
 
@@ -346,13 +354,13 @@ forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, c
 
 ## 10. Milestones
 
-**M1: Tonight** (no accounts needed)
+**M1: Tonight** (no accounts needed) · **Built 3 Nov 2026**
 Forecast engine with tests, `/api/forecast`, the forecast part of the Tonight screen, About page. Deployable as is.
 *Done when:* score, look and times show for any location, and tests pass (sun times within 2 min of reference values, plus scoring scenarios for clear sky, low overcast, blocked horizon, mid-cloud canvas, haze and rain clearing).
 
 **M2: Spots near you**
 Spot pipeline, map with walking radius, "Best near you" on the Tonight screen, spot pages with the view profile, and the few well-known viewpoints.
-*Done when:* spots cover all of Greater London, and in a test neighborhood at least 8 of 10 checked spots match reality (open / partly / blocked).
+*Done when:* spots cover all of Greater London, and in the test neighborhood (Hoxton) at least 8 of 10 checked spots match reality (open / partly / blocked).
 
 **M3: Contribute**
 Supabase, Google sign-in, add a spot (compass + wedge), log a sunset with photos and the view answer, spot galleries ("this time of year"), reports and admin page, delete account.
@@ -372,15 +380,14 @@ Installable PWA (manifest + service worker), push opt-in and settings, and the 1
 
 - **Forecast accuracy** is the main risk, since the first weights are guesses. Mitigation: show the factors and confidence, log outcomes from day one, tune.
 - **Spot accuracy:** missing building heights and unmapped trees. Mitigation: check a test neighborhood, use the "was the view open?" answers, move to LIDAR if needed.
-- **Open-Meteo limits:** the free tier is limited per IP, and Vercel shares IPs between customers. Mitigation: grid caching. The engine can move to the browser if needed.
-- **Model coverage:** which models give all three cloud layers for London is still to be checked.
+- **Open-Meteo limits:** the free tier is limited per IP, and shared IPs run out (the build container's did). Mitigation: the browser fetches with each visitor's own IP, the server is only a fallback, and results are cached. The alert job (M4) may need retries.
 - **iPhone push** needs Add to Home Screen.
 - **Compass accuracy** in the city: always allow manual adjustment.
 - **Free tiers:** Supabase pauses projects after a week without activity (the 15-minute job should keep it awake). OpenFreeMap has no uptime guarantee (fallback: a free MapTiler key).
 
 ## 12. What I need from you
 
-- **Now:** review this version, and tell me your neighborhood if you'd like it used as the test area.
-- **Before I build:** allow the data hosts in this environment's network settings, and create the GitHub repo (details in chat).
-- **Before deploying:** a free Vercel account connected to the repo.
+- **Done:** network access, the GitHub repo, and the test neighborhood (Hoxton).
+- **Now:** try the M1 Tonight screen and say what to change.
+- **To put it online:** a free Vercel account with the repo imported. It needs no settings or keys yet.
 - **Before M3:** a free Supabase project and a Google sign-in client. I'll write step-by-step instructions when we get there.
