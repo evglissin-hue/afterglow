@@ -10,111 +10,38 @@ import {
   CircleMinus,
   Clock,
   Info,
+  Radio,
   LocateFixed,
   Map as MapIcon,
   MapPin,
   RefreshCw,
   Sunset,
 } from "lucide-react";
-import { getForecast, type Forecast } from "@/lib/forecast/getForecast";
+import type { Forecast } from "@/lib/forecast/getForecast";
 import type { Reason } from "@/lib/forecast/score";
 import { BestNearYou } from "./BestNearYou";
 import { CloudSection } from "./CloudSection";
+import { HengeNights } from "./HengeNights";
 import { InstallApp } from "./InstallApp";
 import { PlaceSearch } from "./PlaceSearch";
 import { ScoreDial } from "./ScoreDial";
+import { ShareButton } from "./ShareButton";
 import { SkyBackdrop } from "./SkyBackdrop";
-import { FORECAST_KEY } from "./forecastCache";
+import { friendlyError, loadForecast, placeKey } from "./loadForecast";
 import { SkyStrip } from "./SkyStrip";
 import { SunCompass } from "./SunCompass";
 import { SunTimeline } from "./SunTimeline";
 import { skyPalette, skyPhase, type SkyPhase } from "./sky";
 import { usePlace, type Place } from "./usePlace";
-
-const CACHE_MS = 30 * 60 * 1000;
+import { useNow } from "./useNow";
 
 type Loaded = { key: string; forecast?: Forecast; savedAt?: number; error?: string };
-/** A forecast, and when it was fetched if it's an older saved copy shown because a refresh failed. */
-type Fetched = { forecast: Forecast; savedAt?: number };
 
 const CONFIDENCE_TEXT = {
   high: "High confidence: the weather models agree",
   medium: "Medium confidence: the weather models partly agree",
   low: "Low confidence: the weather models disagree",
 } as const;
-
-const placeKey = (p: Place) => `${p.lat.toFixed(1)},${p.lon.toFixed(1)}`;
-
-async function loadForecast(place: Place): Promise<Fetched> {
-  const storageKey = `${FORECAST_KEY}${placeKey(place)}`;
-  let cached: { savedAt: number; forecast: Forecast } | null = null;
-  try {
-    cached = JSON.parse(localStorage.getItem(storageKey) ?? "null");
-  } catch {
-    // Storage unavailable or corrupt: fetch fresh.
-  }
-  const now = Date.now();
-  const stillTonight = cached !== null && now < Date.parse(cached.forecast.sun.lastLight);
-  if (cached && stillTonight && now - cached.savedAt < CACHE_MS) return { forecast: cached.forecast };
-  let forecast: Forecast;
-  try {
-    forecast = await getForecastWithFallback(place);
-  } catch (error) {
-    // No signal (say, out in a park): an older forecast for tonight beats an error.
-    if (cached && stillTonight) return { forecast: cached.forecast, savedAt: cached.savedAt };
-    throw error;
-  }
-  try {
-    localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), forecast }));
-  } catch {
-    // Private mode or full storage: fine without a cache.
-  }
-  return { forecast };
-}
-
-/**
- * Ask Open-Meteo straight from the browser, so each visitor uses their own free quota.
- * If that fails (e.g. a shared network hit the daily limit), try our server instead.
- */
-async function getForecastWithFallback(place: Place): Promise<Forecast> {
-  try {
-    return await getForecast(place.lat, place.lon);
-  } catch (direct) {
-    const response = await fetch(`/api/forecast?lat=${place.lat}&lon=${place.lon}`).catch(() => null);
-    if (response?.ok) return (await response.json()) as Forecast;
-    // The server can read error details the browser can't, so prefer its message.
-    const serverError: unknown = await response
-      ?.json()
-      .then((body: { error?: unknown }) => body.error)
-      .catch(() => null);
-    throw new Error(typeof serverError === "string" ? serverError : (direct as Error).message);
-  }
-}
-
-function friendlyError(message: string): string {
-  if (/limit|429/i.test(message)) {
-    return "The free weather service has hit its daily limit for this network. Try again later.";
-  }
-  if (/reach|fetch|network/i.test(message)) {
-    return "Couldn't reach the weather service. Check your connection and try again.";
-  }
-  return message;
-}
-
-/** The current time, refreshed every 30 s. Null until mounted, so nothing time-based renders on the server. */
-function useNow(): Date | null {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    const tick = () => setNow(new Date());
-    const first = setTimeout(tick, 0);
-    const every = setInterval(tick, 30_000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(every);
-    };
-  }, []);
-  return now;
-}
 
 /** Where the evening is now, for the sky colors. Before the forecast arrives, only day or night. */
 function useSkyPhase(now: Date | null, place: Place | null, forecast: Forecast | null): SkyPhase {
@@ -336,11 +263,25 @@ function ForecastView({
           <ConfidenceDots level={forecast.confidence} />
           {CONFIDENCE_TEXT[forecast.confidence]}
         </p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2 [text-shadow:none]">
+          {isLiveTime(forecast, now) && (
+            <Link
+              href="/live"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#fff7ec] px-4 text-sm font-semibold text-night hover:brightness-95"
+            >
+              <Radio className="size-4" aria-hidden="true" />
+              {now && now.getTime() < Date.parse(sun.sunset) ? "Sunset soon: go live" : "It's happening: go live"}
+            </Link>
+          )}
+          <ShareButton forecast={forecast} placeLabel={place.source === "search" && place.name ? place.name : "London"} />
+        </div>
       </section>
 
       <SunTimeline forecast={forecast} now={now} format={format} />
 
       <BestNearYou place={place} forecast={forecast} now={now} />
+
+      <HengeNights place={place} now={now} />
 
       <section className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <SunCompass bearing={sun.bearing} />
@@ -394,6 +335,13 @@ function ForecastView({
       </section>
     </div>
   );
+}
+
+/** Live mode is offered from half an hour before sunset until last light. */
+function isLiveTime(forecast: Forecast, now: Date | null): boolean {
+  if (!now) return false;
+  const t = now.getTime();
+  return t >= Date.parse(forecast.sun.sunset) - 30 * 60_000 && t <= Date.parse(forecast.sun.lastLight);
 }
 
 function statusLine(forecast: Forecast, now: Date | null, format: (iso: string) => string): string {
