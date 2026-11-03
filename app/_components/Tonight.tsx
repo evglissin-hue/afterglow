@@ -24,6 +24,7 @@ import { BestNearYou } from "./BestNearYou";
 import { CloudSection } from "./CloudSection";
 import { HengeNights } from "./HengeNights";
 import { InstallApp } from "./InstallApp";
+import { Outlook } from "./Outlook";
 import { PlaceSearch } from "./PlaceSearch";
 import { ScoreDial } from "./ScoreDial";
 import { ShareButton } from "./ShareButton";
@@ -289,6 +290,8 @@ function ForecastView({
       </section>
 
       <SunTimeline forecast={forecast} now={now} format={format} />
+
+      <Outlook place={place} tonight={forecast} />
 
       <BestNearYou place={place} forecast={forecast} now={now} />
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { gridPoint } from "@/lib/forecast/getForecast";
+import { gridPoint, type Forecast } from "@/lib/forecast/getForecast";
 import { getOutlook, localDate, type Outlook as OutlookData, type OutlookDay } from "@/lib/forecast/getOutlook";
 import type { Label, Look } from "@/lib/forecast/score";
 import { nextSunset } from "@/lib/sun";
@@ -41,7 +41,7 @@ type Loaded = { key: string; strip?: Strip };
  * The next five evenings at a glance: a score ring for each, and the best one named above.
  * Hidden if the outlook can't be loaded.
  */
-export function Outlook({ place }: { place: Place | null }) {
+export function Outlook({ place, tonight }: { place: Place | null; tonight?: Forecast | null }) {
   const cell = place ? gridPoint(place.lat, place.lon) : null;
   const lat = cell?.lat ?? null;
   const lon = cell?.lon ?? null;
@@ -64,7 +64,24 @@ export function Outlook({ place }: { place: Place | null }) {
   if (!current) return <StripSkeleton />;
   // Nothing to compare with only one evening: Tonight already shows it.
   if (!current.strip || current.strip.days.length < 2) return null;
-  return <StripView {...current.strip} />;
+  return <StripView {...withTonight(current.strip, tonight)} />;
+}
+
+/**
+ * Tonight's evening as the main forecast has it, so the strip never shows a different score from the
+ * big one above it (the strip's data can be up to 3 hours older).
+ */
+function withTonight(strip: Strip, tonight: Forecast | null | undefined): Strip {
+  if (!tonight) return strip;
+  const date = localDate(new Date(tonight.sun.sunset), tonight.location.timezone);
+  return {
+    ...strip,
+    days: strip.days.map((day) =>
+      day.date === date
+        ? { ...day, score: tonight.score, label: tonight.label, look: tonight.look, lookTitle: tonight.lookTitle, confidence: tonight.confidence }
+        : day,
+    ),
+  };
 }
 
 async function loadStrip(lat: number, lon: number): Promise<Strip> {
