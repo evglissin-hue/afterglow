@@ -13,7 +13,7 @@ Sunset forecast and neighborhood sunset spots for London. A hobby project; the p
 - Each spot has a page with what's in the way toward the sunset, the sun's path tonight, and which months the sunset is in view.
 - Installs to the home screen as an app (Chrome: "Install"; iPhone: Share → Add to Home Screen). Without a signal it opens with the last saved forecast.
 - The Tonight screen sits on a sky tinted by tonight's likely look and the time of day, with a sunset timeline, a side view of the cloud along the sunset line, and street henge nights near you.
-- Live mode during the sunset, a share picture, favorites, map filters and place search.
+- A five-evening outlook, live mode during the sunset, a share picture, favorites, map filters and place search, and a log of the sunsets you've seen (with photos, kept on the phone for now).
 
 ## Run it
 

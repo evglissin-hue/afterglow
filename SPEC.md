@@ -36,7 +36,7 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 | Area | London for spots; the forecast works for any location |
 | Spots | Neighborhood spots within a short walk (default 15 min), not destination viewpoints |
 | Social in v1 | Public spots and photos; no feed, follows, likes or comments |
-| Forecast range | The next sunset only (rolls over to tomorrow after dusk) |
+| Forecast range | The next sunset in full (rolls over to tomorrow after dusk), plus a five-evening outlook (score, label, look) |
 | Alerts | Yes, on the day |
 | Sunrise | No |
 
@@ -189,7 +189,7 @@ The first rule that matches wins:
 
 ### 5.6 Confidence
 
-Score each model separately and show the median. Spread between models ≤ 15 → High, ≤ 30 → Medium, more → Low. Drop one level if sunset is more than 12 h away.
+Score each model separately and show the median. Spread between models ≤ 15 → High, ≤ 30 → Medium, more → Low. Drop one level if sunset is more than 12 h away, and another if it's more than 72 h away (only the outlook looks that far: days ahead, the models agree more than their forecasts deserve).
 
 ### 5.7 Getting better over time
 
@@ -201,6 +201,8 @@ Score each model separately and show the median. Spread between models ≤ 15 �
 ### 5.8 Where the forecast runs, and the API
 
 The browser computes the forecast itself, calling Open-Meteo directly, so each visitor uses their own free quota. A shared IP can run out: the build container's did on 3 Nov. If the direct call fails, the browser falls back to `GET /api/forecast?lat=…&lon=…`, which runs the same code on the server and will also serve the alert job (M4). Locations are rounded to a 0.1° grid, and results are cached for 30 minutes (browser storage, and the CDN for the API).
+
+**Outlook:** `getOutlook` scores the next five sunsets with the same code, from one weather request and one air-quality request (about 120 hours ahead). Every evening is sampled along the first evening's sunset line; the bearing moves at most 0.64° a day in London, so four days on the 300 km point is at most about 13 km off. Air quality (CAMS) reaches 4–5 days; later evenings are scored without it. The strip on Tonight caches it for 3 hours per cell, falls back to `GET /api/outlook?lat=…&lon=…`, and takes tonight's evening from the main forecast so the two never disagree. The network calls live in `lib/weather/fetch.ts`; `lib/forecast/evening.ts` scores one evening for both.
 
 ```json
 {
@@ -294,6 +296,7 @@ Phone browser: Next.js app (installable PWA)
   ├─ data: Supabase (Postgres, Auth, Storage), protected by row-level security
   └─ Next.js API routes on Vercel
        ├─ /api/forecast  → the same forecast on the server: fallback, alert job, debugging
+       ├─ /api/outlook   → the five-evening outlook on the server: fallback
        ├─ /api/logs      → saves a log together with the current forecast
        └─ /api/cron      ← Supabase Cron, every 15 min → web push alerts
 
@@ -401,7 +404,7 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 - LIDAR heights for real trees and buildings
 - Feed, follows, likes, comments; private spots (e.g. "my balcony")
 - Android app (§7.1), then maybe iPhone
-- Multi-day outlook, more cities, sunrise, AR "where will the sun set" camera view
+- More cities, sunrise
 
 ## 11. Risks
 
