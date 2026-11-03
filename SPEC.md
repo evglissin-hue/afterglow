@@ -404,7 +404,7 @@ Spot pipeline, map with walking radius, "Best near you" on the Tonight screen, a
 Supabase, Google sign-in, add a spot (compass + wedge), log a sunset with photos and the view answer, spot galleries ("this time of year"), reports and admin page, delete account.
 *Done when:* on a phone, a signed-in user can add a spot and a log with photos, other people see them, and three reports hide an item.
 
-**M4: Alerts** · **Built 3 Nov 2026; waiting on the Supabase setup** (`supabase/README.md`)
+**M4: Alerts** · **Built and live 3 Nov 2026**: Supabase's job calls the site every 15 minutes, and a test alert reached the owner's phone (`supabase/README.md`)
 Installable PWA (manifest + service worker; built, §7.1), push opt-in and settings (`/alerts`, without accounts: the push subscription is the identity), and the 15-minute job (send due alerts; built). Not built yet: saving the daily pre-sunset forecast (`forecast_snaps`).
 *Done when:* a test user gets exactly one alert on a day that clears their threshold, at their chosen time, naming the best spot within their walking radius, on Android Chrome and on an iPhone with the app on the home screen.
 
@@ -431,5 +431,5 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 - **Now:** check a handful of the spots the app finds near you, against what you know of them.
 - **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; public since 3 Nov 2026).
 - **To deploy on every push:** connect the GitHub repo in the Vercel project's Git settings.
-- **Alerts:** done on 3 Nov 2026: Vercel Authentication off, Supabase added from Vercel's Storage tab, `schema.sql` run (`supabase/README.md`). Next: switch alerts on from a phone and send a test alert.
+- **Alerts:** done on 3 Nov 2026: Vercel Authentication off, Supabase added from Vercel's Storage tab, `schema.sql` run, alerts on and a test alert received (`supabase/README.md`). Still to see: the first real alert on an evening that clears the threshold.
 - **Before M3 (accounts, uploading logs and photos):** the same Supabase project, plus a Google sign-in client. I'll write step-by-step instructions when we get there.
