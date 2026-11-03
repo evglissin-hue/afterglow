@@ -42,7 +42,12 @@ export const config = {
     pastelMaxAod: 0.2,
   },
 
-  confidence: { highSpread: 15, mediumSpread: 30, longLeadHours: 12 },
+  /**
+   * Model spread bands for high and medium confidence. Confidence drops a level when sunset is more
+   * than `longLeadHours` away, and another beyond `veryLongLeadHours` (only the outlook looks that far):
+   * days ahead, the models agree more than their forecasts deserve.
+   */
+  confidence: { highSpread: 15, mediumSpread: 30, longLeadHours: 12, veryLongLeadHours: 72 },
 } as const;
 
 export type Config = typeof config;

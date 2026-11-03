@@ -128,4 +128,15 @@ describe("labels and model agreement", () => {
     expect(combineModels(results, 3).confidence).toBe("low");
     expect(combineModels(results.slice(0, 1), 3).confidence).toBe("low");
   });
+
+  it("is never sure days ahead, even when the models agree", () => {
+    const results = [
+      { model: "a", result: { ...at(100), score: 70 } },
+      { model: "b", result: { ...at(100), score: 72 } },
+      { model: "c", result: { ...at(100), score: 75 } },
+    ];
+    expect(combineModels(results, 3).confidence).toBe("high");
+    expect(combineModels(results, 48).confidence).toBe("medium");
+    expect(combineModels(results, 80).confidence).toBe("low");
+  });
 });

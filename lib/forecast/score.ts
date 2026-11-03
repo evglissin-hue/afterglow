@@ -237,6 +237,7 @@ export function combineModels<M extends string>(
   let level =
     results.length < 2 ? 2 : spread <= cfg.confidence.highSpread ? 0 : spread <= cfg.confidence.mediumSpread ? 1 : 2;
   if (leadHours > cfg.confidence.longLeadHours) level = Math.min(2, level + 1);
+  if (leadHours > cfg.confidence.veryLongLeadHours) level = Math.min(2, level + 1);
 
   return { score, label: labelFor(score, cfg), primary, confidence: levels[level], spread };
 }
