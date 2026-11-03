@@ -40,6 +40,9 @@ TILE_LON_DEG = 0.08
 # How good a view is, by obstacle angle toward the sunset (degrees above the horizon).
 QUALITY = ((2.0, 1.0), (5.0, 0.75), (12.0, 0.35))
 MIN_SCORE = 40
+# In dense areas with nothing better, a square still gets its best spot down to this score:
+# a sky view nearby beats a good view half an hour away.
+LOCAL_MIN_SCORE = 25
 STREET_MAX_OBSTACLE = 3.0
 THIN_CELL_M = 400.0
 PER_CELL = 2
@@ -65,17 +68,18 @@ def score_profiles(profiles: np.ndarray, kinds: np.ndarray, street_bearings: np.
     return score.astype(int)
 
 
-def thin(x: np.ndarray, y: np.ndarray, score: np.ndarray, eligible: np.ndarray, group: np.ndarray) -> np.ndarray:
+def thin(x: np.ndarray, y: np.ndarray, score: np.ndarray, group: np.ndarray) -> np.ndarray:
     """Best spots first: at most PER_CELL per square, none closer than MIN_GAP_M, and spots of the
-    same place (park, canal) at least SAME_PLACE_GAP_M apart, with at most MAX_PER_PARK per park."""
+    same place (park, canal) at least SAME_PLACE_GAP_M apart, with at most MAX_PER_PARK per park.
+    Spots scoring LOCAL_MIN_SCORE to MIN_SCORE only fill squares that have nothing better."""
     cells: dict[tuple[int, int], list[int]] = defaultdict(list)
     by_group: dict[str, list[int]] = defaultdict(list)
     kept = []
     for i in np.argsort(-score, kind="stable"):
-        if not eligible[i]:
-            continue
+        if score[i] < LOCAL_MIN_SCORE:
+            break
         cx, cy = int(x[i] // THIN_CELL_M), int(y[i] // THIN_CELL_M)
-        if len(cells[(cx, cy)]) >= PER_CELL:
+        if len(cells[(cx, cy)]) >= (PER_CELL if score[i] >= MIN_SCORE else 1):
             continue
         neighbours = (j for dx in (-1, 0, 1) for dy in (-1, 0, 1) for j in cells[(cx + dx, cy + dy)])
         if any((x[j] - x[i]) ** 2 + (y[j] - y[i]) ** 2 < MIN_GAP_M**2 for j in neighbours):
@@ -216,7 +220,7 @@ def main(area_name: str) -> None:
     score = score_profiles(profiles, kinds, c["street_bearing"])
     print(f"profiles in {time.time() - started:.0f}s")
 
-    keep = thin(c["x"], c["y"], score, score >= MIN_SCORE, c["group"])
+    keep = thin(c["x"], c["y"], score, c["group"])
     names = name_spots(c, keep, osm)
     lon, lat = TO_WGS.transform(c["x"][keep], c["y"][keep])
 

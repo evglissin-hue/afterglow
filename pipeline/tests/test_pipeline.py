@@ -74,8 +74,17 @@ def test_thinning_keeps_the_best_and_spaces_out_one_park():
     y = np.zeros(5)
     score = np.array([90, 80, 70, 60, 50])
     group = np.array(["park:a", "park:a", "park:a", "park:b", "park:a"], dtype=object)
-    kept = thin(x, y, score, np.ones(5, dtype=bool), group)
+    kept = thin(x, y, score, group)
     assert list(kept) == [0, 2, 3, 4]  # #1 is too close to #0
+
+
+def test_weak_spots_only_fill_empty_squares():
+    x = np.array([100.0, 300.0, 900.0, 1000.0])  # squares 0, 0, 2, 2
+    y = np.zeros(4)
+    score = np.array([80, 30, 30, 20])
+    group = np.array(["park:a", "park:b", "park:c", "park:d"], dtype=object)
+    kept = thin(x, y, score, group)
+    assert list(kept) == [0, 2]  # #1 sits with a better spot; #3 scores too low
 
 
 def test_straight_runs_find_long_straight_stretches():
