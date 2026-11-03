@@ -1,11 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Instrument_Serif } from "next/font/google";
 import { RegisterServiceWorker } from "./_components/RegisterServiceWorker";
 import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+/** For the big titles: tonight's look, spot names. */
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +37,7 @@ const KEEP_INSTALL_OFFER = `addEventListener("beforeinstallprompt",function(e){e
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-GB" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="en-GB" className={`${geistSans.variable} ${instrumentSerif.variable} h-full antialiased`}>
       <head>
         {/* Sent with cookies, so the manifest also loads while the site is behind Vercel's login. */}
         <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />

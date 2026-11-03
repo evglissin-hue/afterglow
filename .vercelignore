@@ -2,3 +2,4 @@ pipeline/
 .next/
 node_modules/
 public/maplibre/
+.claude/

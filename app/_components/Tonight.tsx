@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getPosition } from "suncalc";
 import {
   CircleAlert,
   CircleCheck,
@@ -11,19 +12,20 @@ import {
   LocateFixed,
   Map as MapIcon,
   MapPin,
-  Moon,
   RefreshCw,
-  Sparkles,
-  Sun,
   Sunset,
 } from "lucide-react";
 import { getForecast, type Forecast } from "@/lib/forecast/getForecast";
-import type { Label, Reason } from "@/lib/forecast/score";
+import type { Reason } from "@/lib/forecast/score";
 import { BestNearYou } from "./BestNearYou";
+import { CloudSection } from "./CloudSection";
 import { InstallApp } from "./InstallApp";
 import { ScoreDial } from "./ScoreDial";
+import { SkyBackdrop } from "./SkyBackdrop";
 import { SkyStrip } from "./SkyStrip";
 import { SunCompass } from "./SunCompass";
+import { SunTimeline } from "./SunTimeline";
+import { skyPalette, skyPhase, type SkyPhase } from "./sky";
 import { usePlace, type Place } from "./usePlace";
 
 const CACHE_MS = 30 * 60 * 1000;
@@ -32,24 +34,10 @@ type Loaded = { key: string; forecast?: Forecast; savedAt?: number; error?: stri
 /** A forecast, and when it was fetched if it's an older saved copy shown because a refresh failed. */
 type Fetched = { forecast: Forecast; savedAt?: number };
 
-const HERO_GRADIENTS: Record<Label, string> = {
-  Poor: "linear-gradient(160deg, #1d2130 0%, #2b3041 55%, #3c3e4c 100%)",
-  Fair: "linear-gradient(160deg, #221a38 0%, #4a2f57 55%, #8c5a4c 100%)",
-  Good: "linear-gradient(160deg, #2a1846 0%, #7a2f62 55%, #d9733f 100%)",
-  Great: "linear-gradient(160deg, #2b1650 0%, #a3306b 50%, #f08a3c 100%)",
-  Epic: "linear-gradient(160deg, #2a0f5c 0%, #c2257a 45%, #ff9a3c 80%, #ffd36b 100%)",
-};
-
 const CONFIDENCE_TEXT = {
   high: "High confidence: the weather models agree",
   medium: "Medium confidence: the weather models partly agree",
   low: "Low confidence: the weather models disagree",
-} as const;
-
-const BEST_COLOR_HINT = {
-  high: "high cloud, after sunset",
-  mid: "around sunset",
-  clear: "just after sunset",
 } as const;
 
 const placeKey = (p: Place) => `${p.lat.toFixed(1)},${p.lon.toFixed(1)}`;
@@ -125,6 +113,14 @@ function useNow(): Date | null {
   return now;
 }
 
+/** Where the evening is now, for the sky colors. Before the forecast arrives, only day or night. */
+function useSkyPhase(now: Date | null, place: Place | null, forecast: Forecast | null): SkyPhase {
+  if (!now || !place) return "night";
+  const altitude = getPosition(now, place.lat, place.lon).altitude;
+  if (!forecast) return altitude < -6 ? "night" : "day";
+  return skyPhase(now, forecast.sun, altitude);
+}
+
 export default function Tonight() {
   const { place, locate, chooseLondon } = usePlace();
   const [attempt, setAttempt] = useState(0);
@@ -146,9 +142,13 @@ export default function Tonight() {
   }, [place, key]);
 
   const current = loaded && loaded.key === key ? loaded : null;
+  const forecast = current?.forecast ?? null;
+  const phase = useSkyPhase(now, place, forecast);
+  const sky = skyPalette(forecast?.look ?? null, phase);
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-14">
+      <SkyBackdrop sky={sky} phase={phase} />
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Sunset className="size-5 text-ember" aria-hidden="true" />
@@ -175,7 +175,7 @@ export default function Tonight() {
       ) : (
         <>
           {current.savedAt && <SavedNote savedAt={current.savedAt} onRetry={() => setAttempt((a) => a + 1)} />}
-          <ForecastView forecast={current.forecast} now={now} place={place!} />
+          <ForecastView forecast={current.forecast} now={now} place={place!} sky={sky} />
         </>
       )}
 
@@ -282,7 +282,17 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
   );
 }
 
-function ForecastView({ forecast, now, place }: { forecast: Forecast; now: Date | null; place: Place }) {
+function ForecastView({
+  forecast,
+  now,
+  place,
+  sky,
+}: {
+  forecast: Forecast;
+  now: Date | null;
+  place: Place;
+  sky: ReturnType<typeof skyPalette>;
+}) {
   const { sun, location } = forecast;
   const format = useMemo(() => {
     const fmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: location.timezone });
@@ -292,40 +302,20 @@ function ForecastView({ forecast, now, place }: { forecast: Forecast; now: Date 
 
   return (
     <div className="space-y-4">
-      <section
-        className="rounded-3xl p-6 shadow-[0_20px_60px_-25px_rgba(240,138,60,0.45)]"
-        style={{ backgroundImage: HERO_GRADIENTS[forecast.label] }}
-        aria-label="Tonight's sunset forecast"
-      >
-        <p className="text-xs font-medium tracking-[0.14em] text-white/80 uppercase">
-          {statusLine(forecast, now, format)}
-        </p>
-        <div className="mt-4 flex items-center gap-5">
-          <ScoreDial score={forecast.score} label={forecast.label} />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-white/80">{forecast.label}</p>
-            <h1 className="text-2xl leading-tight font-semibold text-balance">{forecast.lookTitle}</h1>
-          </div>
+      <section className="pt-2 pb-3 text-center [text-shadow:0_1px_14px_rgba(0,0,0,0.35)]" aria-label="Tonight's sunset forecast">
+        <p className="text-xs font-medium tracking-[0.16em] text-white/90 uppercase">{statusLine(forecast, now, format)}</p>
+        <div className="mt-4 flex justify-center">
+          <ScoreDial score={forecast.score} label={forecast.label} ring={sky.ring} glow={sky.glow[0]} />
         </div>
-        <p className="mt-4 text-[15px] leading-snug text-white/90">{forecast.lookText}</p>
-        <p className="mt-3 flex items-center gap-2 text-xs text-white/75">
+        <h1 className="mt-4 font-serif text-[42px] leading-[1.02] font-normal text-balance italic">{forecast.lookTitle}</h1>
+        <p className="mx-auto mt-2.5 max-w-xs text-[15px] leading-snug text-white/90">{forecast.lookText}</p>
+        <p className="mt-3 flex items-center justify-center gap-2 text-xs text-white/80">
           <ConfidenceDots level={forecast.confidence} />
           {CONFIDENCE_TEXT[forecast.confidence]}
         </p>
       </section>
 
-      <section className="grid grid-cols-2 gap-3" aria-label="Times">
-        <TimeTile icon={<Sun className="size-4" />} label="Golden hour" value={format(sun.goldenStart)} />
-        <TimeTile icon={<Sunset className="size-4" />} label="Sunset" value={format(sun.sunset)} />
-        <TimeTile
-          icon={<Sparkles className="size-4" />}
-          label="Best color"
-          value={`${format(sun.bestColor.start)}–${format(sun.bestColor.end)}`}
-          hint={BEST_COLOR_HINT[sun.bestColor.layer]}
-          highlight
-        />
-        <TimeTile icon={<Moon className="size-4" />} label="Last light" value={format(sun.lastLight)} />
-      </section>
+      <SunTimeline forecast={forecast} now={now} format={format} />
 
       <BestNearYou place={place} forecast={forecast} now={now} />
 
@@ -358,10 +348,17 @@ function ForecastView({ forecast, now, place }: { forecast: Forecast; now: Date 
           Sky along the sunset line
         </h2>
         <p className="mt-1 mb-3 text-xs leading-relaxed text-dusk">
-          Cloud cover (%) from 25 km behind you to 300 km toward the sun, in the{" "}
-          {forecast.models.length > 1 ? "middle" : "only"} model.
+          From 25 km behind you to 300 km toward the sun. Cloud near you lights up; cloud far toward the sun
+          can block the light.
         </p>
-        <SkyStrip path={forecast.path} />
+        <CloudSection path={forecast.path} gapBlock={forecast.factors.gapBlock} />
+        <details className="group mt-2">
+          <summary className="cursor-pointer py-1 text-xs text-mist hover:text-ink">Show the numbers</summary>
+          <p className="mt-1 mb-2 text-xs leading-relaxed text-dusk">
+            Cloud cover (%) at each point, in the {forecast.models.length > 1 ? "middle" : "only"} model.
+          </p>
+          <SkyStrip path={forecast.path} />
+        </details>
       </section>
 
       <section className="flex flex-wrap items-center gap-2 text-xs text-mist" aria-label="Scores by model">
@@ -395,35 +392,6 @@ function duration(ms: number) {
   const minutes = Math.max(0, Math.round(ms / 60_000));
   const hours = Math.floor(minutes / 60);
   return hours ? `${hours} h ${String(minutes % 60).padStart(2, "0")} min` : `${minutes} min`;
-}
-
-function TimeTile({
-  icon,
-  label,
-  value,
-  hint,
-  highlight = false,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  hint?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        highlight ? "border-ember/50 bg-ember/10" : "border-white/10 bg-white/[0.04]"
-      }`}
-    >
-      <p className={`flex items-center gap-1.5 text-xs ${highlight ? "text-ember" : "text-mist"}`}>
-        <span aria-hidden="true">{icon}</span>
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
-      {hint && <p className="text-xs text-mist">{hint}</p>}
-    </div>
-  );
 }
 
 function ReasonIcon({ tone }: { tone: Reason["tone"] }) {
