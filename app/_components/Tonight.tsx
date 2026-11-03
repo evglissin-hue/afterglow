@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getPosition } from "suncalc";
 import {
+  Bell,
   ChevronDown,
   CircleAlert,
   CircleCheck,
@@ -21,6 +22,7 @@ import {
 import type { Forecast } from "@/lib/forecast/getForecast";
 import type { Reason } from "@/lib/forecast/score";
 import { sunEvents } from "@/lib/sun";
+import { AlertsSync } from "./AlertsSync";
 import { BestNearYou } from "./BestNearYou";
 import { CloudSection } from "./CloudSection";
 import { HengeNights } from "./HengeNights";
@@ -82,6 +84,7 @@ export default function Tonight() {
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-14">
       <SkyBackdrop sky={sky} phase={phase} />
+      <AlertsSync />
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Sunset className="size-5 text-ember" aria-hidden="true" />
@@ -93,6 +96,9 @@ export default function Tonight() {
           </Link>
           <Link href="/me" aria-label="My sunsets" className="grid size-11 place-items-center rounded-full hover:bg-white/10 hover:text-ink">
             <NotebookPen className="size-5" />
+          </Link>
+          <Link href="/alerts" aria-label="Sunset alerts" className="grid size-11 place-items-center rounded-full hover:bg-white/10 hover:text-ink">
+            <Bell className="size-5" />
           </Link>
           <Link href="/about" aria-label="About" className="grid size-11 place-items-center rounded-full hover:bg-white/10 hover:text-ink">
             <Info className="size-5" />
