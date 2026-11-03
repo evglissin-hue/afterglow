@@ -2,7 +2,7 @@
 
 *Working name · Spec v0.5 · 3 Nov 2026 · M1 and M2 built*
 
-> **v0.5:** M2 is built: about 19,000 spots found across London, a map, "Best near you" and spot pages. The pipeline as built is described in §6.2.
+> **v0.5:** M2 is built: about 15,400 spots found across London, a map, "Best near you" and spot pages. The pipeline as built is described in §6.2.
 >
 > **v0.4:** an Android app is the long-term target, iPhone maybe later (§7.1).
 >

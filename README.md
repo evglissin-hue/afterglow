@@ -7,7 +7,7 @@ Sunset forecast and neighborhood sunset spots for London. A hobby project; the p
 ## What it does now
 
 - Scores tonight's sunset from 0 to 100 using cloud forecasts at 8 points along the line toward the sunset. It shows the likely look ("pastel pink", "fiery orange", "grey"), the best color window and a confidence level based on how much three weather models agree.
-- Lists the best spots within a short walk and shows them on a map, colored by tonight's view toward the sunset. About 19,000 spots across London were found automatically from map and terrain data (see `pipeline/`).
+- Lists the best spots within a short walk and shows them on a map, colored by tonight's view toward the sunset. About 15,400 spots across London were found automatically from map and terrain data (see `pipeline/`).
 - Each spot has a page with what's in the way toward the sunset, the sun's path tonight, and which months the sunset is in view.
 
 ## Run it
