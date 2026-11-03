@@ -6,6 +6,7 @@ import { getPosition } from "suncalc";
 import {
   Bell,
   ChevronDown,
+  ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleMinus,
@@ -304,15 +305,19 @@ function ForecastView({
 
       <HengeNights place={place} now={now} />
 
-      <section className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <Link
+        href="/compass"
+        className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 hover:bg-white/[0.07]"
+      >
         <SunCompass bearing={sun.bearing} />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-medium">
             The sun sets toward {sun.bearing}° {sun.compass}
           </p>
-          <p className="text-sm text-mist">Find a spot with an open view that way.</p>
+          <p className="text-sm text-mist">Find that way with your phone&apos;s compass.</p>
         </div>
-      </section>
+        <ChevronRight className="size-4 shrink-0 text-dusk" aria-hidden="true" />
+      </Link>
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4" aria-labelledby="why">
         <h2 id="why" className="text-sm font-medium text-mist">

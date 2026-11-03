@@ -156,7 +156,7 @@ export default function Compass() {
         </Link>
 
         <header className="mt-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Sunset compass</h1>
+          <h1 className="font-serif text-[34px] leading-tight">Sunset compass</h1>
           <p className="mt-1 text-mist">
             {line ?? (place && now ? "The sun doesn't set here today." : "Finding you…")}
           </p>

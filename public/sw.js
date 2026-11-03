@@ -3,7 +3,7 @@
 
 const STATIC_CACHE = "afterglow-static-v1"; // hashed build files, which never change
 const PAGE_CACHE = "afterglow-pages-v1"; // the main screens and spot data, refreshed on every visit
-const MAIN_SCREENS = ["/", "/map", "/live", "/log", "/me", "/alerts", "/about"];
+const MAIN_SCREENS = ["/", "/map", "/live", "/log", "/me", "/alerts", "/compass", "/about"];
 const MAX_STATIC_ENTRIES = 200;
 
 self.addEventListener("install", (event) => {

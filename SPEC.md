@@ -2,7 +2,7 @@
 
 *Working name · Spec v0.7 · 3 Nov 2026 · M1 and M2 built; installable; redesigned*
 
-> **v0.7:** a visual redesign and a first batch of extras, picked by the owner from a numbered list: a live sky, a glowing score, a sunset timeline, a cloud picture, serif titles; a "your view tonight" postcard per spot; a map with the top 3 numbered, a sunset beam, filters and place search; favorites; street henge nights; live mode during the sunset; a share picture (§4). In progress: alerts, a five-evening outlook, a compass mode. Logging sunsets with photos waits for accounts (M3).
+> **v0.7:** a visual redesign and a batch of extras, picked by the owner from a numbered list: a live sky, a glowing score, a sunset timeline, a cloud picture, serif titles; a "your view tonight" postcard per spot; a map with the top 3 numbered, a sunset beam, filters and place search; favorites; street henge nights; live mode during the sunset; a share picture; a five-evening outlook; a compass with a camera view; logging sunsets with photos on the phone, with "how the forecast did" (§4). Sunset alerts are built and wait for the Supabase setup (§10 M4). Uploading logs and photos waits for accounts (M3).
 >
 > **v0.6:** the app installs to the home screen (manifest, icons, service worker), opens without a signal showing the last forecast, and is ready to show push alerts once a backend sends them. Map pins answer a tap anywhere within a fingertip's reach.
 >
@@ -90,6 +90,7 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 2. **Map**: my walking radius as a circle, spot pins colored by tonight's view (open / partly / blocked), the top 3 numbered, favorites ringed, and a beam toward tonight's sunset from the selected spot (or me), with the sunset time at its end. A tap picks the nearest pin within about 28 px (a fingertip; 14 px for a mouse), rings it and opens a card with a small postcard of the view, a favorite star, Details and Directions; a tap on open map closes the card. Filter chips (sunset in view, open after dusk, kinds of spot) are remembered on the device. Place search (also on Tonight) plans for somewhere else.
 3. **Spot**: a "your view tonight" postcard: the spot's real skyline toward the sunset from its view profile (heights exaggerated, and labeled so) against tonight's colors, with the sun where it slips behind the skyline or sets; a favorite star; tonight's view, access; the next henge nights for streets; the months with an open view; the true-to-scale angle chart in a fold-out; Directions (Google Maps or Citymapper). Later: photos (this time of year / all), logs, Log a sunset, Report.
 3a. **Live** (`/live`): from 30 min before sunset to last light, a countdown through sunset, the best color window and last light, what to watch for tonight's look, a 1–5 rating, and share. Keeps the screen awake. Ratings stay on the phone until accounts exist.
+3b. **Compass** (`/compass`): a dial that turns with the phone, with tonight's sunset, the sun now and its path; "Turn right 35°" until you face the sunset (±5°, with a glow and a vibration tick). A camera view puts the sunset point, the horizon and this evening's sun path over the rear camera. Without a compass: which way to face, relative to the sun. Phone compasses can be 10–20° off in a city, which the page says. The math (heading from the full phone rotation, smoothing, field of view after cropping) is in `lib/compass`.
 4. **Add spot** (signed in)
 5. **Log a sunset** (signed in)
 6. **Me**: home location, walking radius, my spots and logs, alert settings, sign out, delete account
@@ -329,7 +330,7 @@ Android is the long-term target; iPhone maybe later. To keep the move cheap:
 - MapLibre has native Android and React Native versions.
 - Until then, the PWA installs on Android from Chrome, and web push works there without extra steps (unlike iPhone).
 
-**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/live`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. While Vercel Authentication is on, the manifest link carries cookies (`crossorigin="use-credentials"`); the iPhone home-screen app keeps its own cookies, so it may ask for the Vercel login again.
+**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/live`, `/log`, `/me`, `/alerts`, `/compass`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. While Vercel Authentication is on, the manifest link carries cookies (`crossorigin="use-credentials"`); the iPhone home-screen app keeps its own cookies, so it may ask for the Vercel login again.
 
 When the time comes, there are two routes:
 
@@ -409,7 +410,8 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 - Tune the score from logs (logs and a personal "how the forecast did" exist on the phone: `/log`, `/me`)
 - LIDAR heights for real trees and buildings
 - Feed, follows, likes, comments; private spots (e.g. "my balcony")
-- Android app (§7.1), then maybe iPhone
+- Android app (§7.1), then maybe iPhone; a home-screen widget with tonight's score
+- Google Play listing of the installed app (a Trusted Web Activity; Google charges a one-time $25)
 - More cities, sunrise
 
 ## 11. Risks
