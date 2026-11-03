@@ -76,6 +76,8 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 **US6: Get an alert**
 - Opt in, then choose a minimum score (Good / Great / Epic, default Great) and how early (1, 2 or 3 h before sunset, default 2 h).
 - At most one alert a day, decided once at that time. Example: "Great sunset likely tonight (74): fiery orange. Best near you: Hilly Fields, 8 min walk, open horizon. Leave by 16:12."
+- Optional, both on by default: an **upgrade** alert if the forecast clears the bar later that day (before sunset − 30 min, only after a "no"), and **"it's happening"** about 10 minutes before sunset if an alert went out or the score still clears the bar.
+- The named spot is the best within my walk, preferring a favorite whose view is open or a low skyline. Alerts expire at sunset ("it's happening": after the best color), so a phone that was offline never gets a stale one.
 - On iPhone, web push only works after "Add to Home Screen" (iOS 16.4+). The app explains this.
 
 **US7: Keep it clean**
@@ -298,7 +300,8 @@ Phone browser: Next.js app (installable PWA)
        ├─ /api/forecast  → the same forecast on the server: fallback, alert job, debugging
        ├─ /api/outlook   → the five-evening outlook on the server: fallback
        ├─ /api/logs      → saves a log together with the current forecast
-       └─ /api/cron      ← Supabase Cron, every 15 min → web push alerts
+       ├─ /api/push/{subscribe,unsubscribe,test}  → alert sign-ups from the /alerts page
+       └─ /api/cron/alerts  ← Supabase Cron, every 15 min (bearer secret) → web push alerts
 
 Spot pipeline: Python, weekly in GitHub Actions
   OpenStreetMap London extract + OS Terrain 50
@@ -362,6 +365,9 @@ photos          id, log_id, spot_id, user_id, path, thumb_path, width, height, t
 reports         id, reporter_id, target_type (spot | log | photo), target_id, reason,
                 created_at, resolved_at, resolved_by, action
 push_subs       id, user_id, endpoint, p256dh, auth, created_at, last_ok_at
+                (as built, before accounts: push_subscriptions in supabase/schema.sql, one row
+                per phone with the rounded place, walk, alert settings, favorites, time zone,
+                and per-day decided/sent dates; service role only)
 forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, confidence, inputs (jsonb)
 ```
 
@@ -395,12 +401,12 @@ Spot pipeline, map with walking radius, "Best near you" on the Tonight screen, a
 Supabase, Google sign-in, add a spot (compass + wedge), log a sunset with photos and the view answer, spot galleries ("this time of year"), reports and admin page, delete account.
 *Done when:* on a phone, a signed-in user can add a spot and a log with photos, other people see them, and three reports hide an item.
 
-**M4: Alerts** · **Installable app built 3 Nov 2026**
-Installable PWA (manifest + service worker; built, §7.1), push opt-in and settings, and the 15-minute job (send due alerts, save the daily pre-sunset forecast).
+**M4: Alerts** · **Built 3 Nov 2026; waiting on the Supabase setup** (`supabase/README.md`)
+Installable PWA (manifest + service worker; built, §7.1), push opt-in and settings (`/alerts`, without accounts: the push subscription is the identity), and the 15-minute job (send due alerts; built). Not built yet: saving the daily pre-sunset forecast (`forecast_snaps`).
 *Done when:* a test user gets exactly one alert on a day that clears their threshold, at their chosen time, naming the best spot within their walking radius, on Android Chrome and on an iPhone with the app on the home screen.
 
 **Later**
-- Tune the score from logs; "how we did" page
+- Tune the score from logs (logs and a personal "how the forecast did" exist on the phone: `/log`, `/me`)
 - LIDAR heights for real trees and buildings
 - Feed, follows, likes, comments; private spots (e.g. "my balcony")
 - Android app (§7.1), then maybe iPhone
@@ -421,4 +427,5 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 - **Now:** check a handful of the spots the app finds near you, against what you know of them.
 - **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; only the owner's Vercel login can open it for now).
 - **To deploy on every push:** connect the GitHub repo in the Vercel project's Git settings.
-- **Before M3:** a free Supabase project and a Google sign-in client. I'll write step-by-step instructions when we get there.
+- **For alerts:** a free Supabase project, a few Vercel settings and one SQL paste: `supabase/README.md`.
+- **Before M3 (accounts, uploading logs and photos):** the same Supabase project, plus a Google sign-in client. I'll write step-by-step instructions when we get there.

@@ -37,6 +37,10 @@ npm run build
 
 The browser fetches weather straight from Open-Meteo, so each visitor uses their own free quota. `/api/forecast` runs the same code on the server as a fallback, and will serve the alert job later.
 
+## Alerts
+
+Sunset alerts (web push) are built but need a free Supabase project and a few secrets before they work: see [supabase/README.md](supabase/README.md).
+
 ## Data
 
 Weather from [Open-Meteo](https://open-meteo.com) (CC BY 4.0), using UK Met Office, ECMWF and DWD ICON models. Air quality from the Copernicus Atmosphere Monitoring Service via Open-Meteo. Open-Meteo's free API is for non-commercial use.
