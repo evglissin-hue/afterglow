@@ -127,6 +127,29 @@ export function hengeDays(spot: Spot, year: number): Date[] {
     .map((best) => best.day);
 }
 
+/**
+ * Sunsets in the coming `days` days when the sun sets straight down a street (within 0.75°),
+ * soonest first, skipping any that have already happened. Cheaper than `hengeDays` for a list of
+ * nearby streets.
+ */
+export function upcomingHenges(spot: Spot, from: Date, days = 30): Date[] {
+  if (spot.sb === undefined) return [];
+  const evenings: { sunset: Date; off: number }[] = [];
+  // One extra day each side, so a henge at either end of the range is still a local minimum.
+  for (let d = -1; d <= days + 1; d++) {
+    const events = sunEvents(new Date(from.getTime() + d * 86_400_000), spot.lat, spot.lon);
+    if (events) evenings.push({ sunset: events.sunset, off: Math.abs(events.bearing - spot.sb) });
+  }
+  return evenings
+    .filter((e, i) => {
+      const before = evenings[i - 1];
+      const after = evenings[i + 1];
+      return before && after && e.off <= 0.75 && e.off <= before.off && e.off < after.off;
+    })
+    .map((e) => e.sunset)
+    .filter((sunset) => sunset.getTime() > from.getTime());
+}
+
 /** Walking time estimate: straight line × 1.3 for the street network, at 5 km/h. */
 export function walkMinutes(from: LatLon, spot: LatLon): number {
   return Math.round(((distanceKm(from, spot) * 1.3) / 5) * 60);

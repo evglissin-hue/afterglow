@@ -22,6 +22,7 @@ import { CloudSection } from "./CloudSection";
 import { InstallApp } from "./InstallApp";
 import { ScoreDial } from "./ScoreDial";
 import { SkyBackdrop } from "./SkyBackdrop";
+import { FORECAST_KEY } from "./forecastCache";
 import { SkyStrip } from "./SkyStrip";
 import { SunCompass } from "./SunCompass";
 import { SunTimeline } from "./SunTimeline";
@@ -43,7 +44,7 @@ const CONFIDENCE_TEXT = {
 const placeKey = (p: Place) => `${p.lat.toFixed(1)},${p.lon.toFixed(1)}`;
 
 async function loadForecast(place: Place): Promise<Fetched> {
-  const storageKey = `afterglow:forecast:${placeKey(place)}`;
+  const storageKey = `${FORECAST_KEY}${placeKey(place)}`;
   let cached: { savedAt: number; forecast: Forecast } | null = null;
   try {
     cached = JSON.parse(localStorage.getItem(storageKey) ?? "null");

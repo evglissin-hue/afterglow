@@ -8,6 +8,7 @@ import {
   sunHidesAt,
   tileKey,
   tilesAround,
+  upcomingHenges,
   viewByMonth,
   viewFor,
   walkMinutes,
@@ -134,5 +135,24 @@ describe("tiles", () => {
   it("lists only existing tiles near a point", () => {
     expect(tilesAround({ lat: 51.5304, lon: -0.0935 }, 1.5, index).sort()).toEqual(["1030_-1", "1030_-2"]);
     expect(tilesAround({ lat: 52.2, lon: 0.12 }, 1.5, index)).toEqual([]);
+  });
+});
+
+describe("upcoming street henges", () => {
+  const nov10 = sunEvents(new Date("2026-11-10T12:00:00Z"), LONDON.lat, LONDON.lon)!;
+  const street = (sb: number) => spot(() => 20, { kind: "street", sb });
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+
+  it("finds the evening the sun sets down the street", () => {
+    const henges = upcomingHenges(street(nov10.bearing), new Date("2026-11-03T12:00:00Z"), 30);
+    expect(henges.map(day)).toEqual(["2026-11-10"]);
+    expect(Math.abs(henges[0].getTime() - nov10.sunset.getTime())).toBeLessThan(60_000);
+  });
+
+  it("skips tonight's once the sun has set, and streets the sunset never lines up with", () => {
+    const after = new Date(nov10.sunset.getTime() + 60_000);
+    expect(upcomingHenges(street(nov10.bearing), after, 20)).toEqual([]);
+    expect(upcomingHenges(street(200), new Date("2026-11-03T12:00:00Z"), 60)).toEqual([]);
+    expect(upcomingHenges(spot(() => 0), new Date("2026-11-03T12:00:00Z"))).toEqual([]);
   });
 });
