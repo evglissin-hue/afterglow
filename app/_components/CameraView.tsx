@@ -344,16 +344,20 @@ export function CameraView({
         Phone compasses can be 10–20° off in a city.
       </p>
 
-      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/55 to-transparent px-4 pt-24 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/55 to-transparent px-4 pt-24 pb-[max(1rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:pt-4">
         <div className="mx-auto max-w-md text-center">
           <div className="[text-shadow:0_1px_6px_rgba(0,0,0,0.6)]">
             {scene?.hint && <p className="mb-2 text-[15px] font-medium">{scene.hint}</p>}
-            <p className={`text-[2rem] leading-tight font-semibold tracking-tight ${facing ? "text-ember" : "text-white"}`}>
+            <p
+              className={`text-[2rem] leading-tight font-semibold tracking-tight [@media(max-height:500px)]:text-2xl ${
+                facing ? "text-ember" : "text-white"
+              }`}
+            >
               {guidance}
             </p>
-            <p className="mt-1 text-sm text-white/80">{sunsetLine}</p>
+            <p className="mt-1 text-sm text-white/80 [@media(max-height:500px)]:hidden">{sunsetLine}</p>
           </div>
-          <div className="mt-4">{children}</div>
+          <div className="mt-4 [@media(max-height:500px)]:mt-2">{children}</div>
         </div>
       </div>
     </section>
