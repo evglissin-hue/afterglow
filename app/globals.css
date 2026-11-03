@@ -45,3 +45,10 @@ body {
 .maplibregl-ctrl-attrib-button {
   filter: invert(1);
 }
+
+/* Keep the map's bottom controls above the spot card (SpotMap sets --sheet-h). */
+.spot-map .maplibregl-ctrl-bottom-right,
+.spot-map .maplibregl-ctrl-bottom-left {
+  bottom: var(--sheet-h, 0px);
+  transition: bottom 0.2s ease;
+}
