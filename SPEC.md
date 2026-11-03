@@ -1,7 +1,9 @@
 # Afterglow: sunset forecast and neighborhood spots for London
 
-*Working name · Spec v0.3 · 3 Nov 2026 · M1 built*
+*Working name · Spec v0.4 · 3 Nov 2026 · M1 built*
 
+> **v0.4:** an Android app is the long-term target, iPhone maybe later (§7.1).
+>
 > **v0.3:** M1 is built. Forecast details are updated from real data: the three weather models, a longer clear-sky color window, and a rule so a poor score never promises colors. The forecast now runs in the visitor's browser (§5.8).
 >
 > **v0.2:** the focus moved to neighborhood spots within a short walk, found automatically all over London, each with a computed view toward the sunset (§6).
@@ -23,7 +25,7 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 | Topic | Decision |
 |---|---|
 | Builder | Claude, in this session |
-| Platform | Web first: mobile-first, installable to the home screen (PWA) |
+| Platform | Web first: mobile-first, installable to the home screen (PWA). Android app later; iPhone maybe, if it takes off |
 | Purpose | Hobby: free tiers only, no monetization |
 | Area | London for spots; the forecast works for any location |
 | Spots | Neighborhood spots within a short walk (default 15 min), not destination viewpoints |
@@ -303,7 +305,21 @@ Spot pipeline: Python, weekly in GitHub Actions
 - **Spot pipeline:** Python with numpy, shapely and pyosmium. GitHub Actions' free minutes easily cover a weekly run.
 - **Tests:** Vitest for the forecast engine and sun math, pytest for the pipeline, Playwright for the main flows
 
-The forecast engine is a pure TypeScript module with no network or database code. It runs on the server and in tests, and could later run in the browser or a native app.
+The forecast engine is a pure TypeScript module with no network or database code. It runs in the browser, on the server and in tests, and can run unchanged in an Android app.
+
+### 7.1 Path to an Android app
+
+Android is the long-term target; iPhone maybe later. To keep the move cheap:
+
+- `lib/` (sun, forecast, weather, geo, spots) stays plain TypeScript with no Next.js, React or browser-only APIs, so a React Native (Expo) app can reuse it as is.
+- Spot data is a plain JSON file, and Supabase has an Android SDK, so the data layer carries over.
+- MapLibre has native Android and React Native versions.
+- Until then, the PWA installs on Android from Chrome, and web push works there without extra steps (unlike iPhone).
+
+When the time comes, there are two routes:
+
+1. **Wrap the PWA for the Play Store** (a Trusted Web Activity): days of work, same app.
+2. **Build a native Expo app on `lib/`**: weeks of work, for what the web does badly: a home-screen widget with tonight's score, reliable background alerts, compass and camera views.
 
 Repo layout:
 
@@ -374,7 +390,8 @@ Installable PWA (manifest + service worker), push opt-in and settings, and the 1
 - Tune the score from logs; "how we did" page
 - LIDAR heights for real trees and buildings
 - Feed, follows, likes, comments; private spots (e.g. "my balcony")
-- Multi-day outlook, more cities, sunrise, native app, AR "where will the sun set" camera view
+- Android app (§7.1), then maybe iPhone
+- Multi-day outlook, more cities, sunrise, AR "where will the sun set" camera view
 
 ## 11. Risks
 

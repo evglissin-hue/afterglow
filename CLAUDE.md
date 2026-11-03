@@ -3,6 +3,8 @@
 # Afterglow
 
 - Product spec: `SPEC.md`. Update it when a decision changes.
+- Workflow: commit to `main` and push right away (the owner's preference). No long-lived branches or pull requests.
+- An Android app is the long-term target: keep `lib/` free of Next.js, React and browser-only APIs so a React Native app can reuse it.
 - Commands: `npm run dev`, `npm test`, `npm run lint`, `npm run build`.
 - `lib/forecast` stays pure (no network or database code); fetching lives in `lib/weather`.
 - Tunable scoring numbers live in `lib/forecast/config.ts`.
