@@ -4,7 +4,7 @@ Sunset forecast and neighborhood sunset spots for London. A hobby project; the p
 
 **Status:** M1 (tonight's forecast) and M2 (spots near you) are built. Contributions and alerts come next.
 
-**Live:** https://afterglow-evglissin-hue.vercel.app (on Vercel; sign in with the owner's Vercel account to open it).
+**Live:** https://afterglow-evglissin-hue.vercel.app (on Vercel).
 
 ## What it does now
 

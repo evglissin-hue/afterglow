@@ -330,7 +330,7 @@ Android is the long-term target; iPhone maybe later. To keep the move cheap:
 - MapLibre has native Android and React Native versions.
 - Until then, the PWA installs on Android from Chrome, and web push works there without extra steps (unlike iPhone).
 
-**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/live`, `/log`, `/me`, `/alerts`, `/compass`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. While Vercel Authentication is on, the manifest link carries cookies (`crossorigin="use-credentials"`); the iPhone home-screen app keeps its own cookies, so it may ask for the Vercel login again.
+**As built (v0.6):** `public/manifest.webmanifest` with icons from `scripts/make-icons.mjs`, and `public/sw.js`, registered in production builds only. The service worker keeps the main screens (`/`, `/map`, `/live`, `/log`, `/me`, `/alerts`, `/compass`, `/about`) and the spot data from the last visit for when there's no signal, keeps hashed build files, leaves weather, map tiles and `/api` to the network, and shows push notifications (payload `{ title, body, url, tag }`, tapping opens `url`). The Tonight screen shows the last saved forecast when a refresh fails, if it's still for the coming sunset. Its "Get the app" card uses Chrome's install offer, or explains Share → Add to Home Screen on iPhone. The manifest link carries cookies (`crossorigin="use-credentials"`), so it also loads if the site is ever put behind Vercel's login again.
 
 When the time comes, there are two routes:
 
@@ -429,7 +429,7 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 
 - **Done:** network access, the GitHub repo, and the test neighborhood (Hoxton).
 - **Now:** check a handful of the spots the app finds near you, against what you know of them.
-- **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; only the owner's Vercel login can open it for now).
+- **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; public since 3 Nov 2026).
 - **To deploy on every push:** connect the GitHub repo in the Vercel project's Git settings.
-- **For alerts:** switch Vercel Authentication off, add a Supabase database from Vercel's Storage tab, paste one SQL file, redeploy: `supabase/README.md`. Nothing to copy or make up.
+- **Alerts:** done on 3 Nov 2026: Vercel Authentication off, Supabase added from Vercel's Storage tab, `schema.sql` run (`supabase/README.md`). Next: switch alerts on from a phone and send a test alert.
 - **Before M3 (accounts, uploading logs and photos):** the same Supabase project, plus a Google sign-in client. I'll write step-by-step instructions when we get there.
