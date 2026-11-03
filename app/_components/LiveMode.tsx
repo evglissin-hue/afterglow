@@ -6,24 +6,14 @@ import { getPosition } from "suncalc";
 import { Clock, Cloud, Compass, RotateCcw, X } from "lucide-react";
 import type { Forecast } from "@/lib/forecast/getForecast";
 import { loadForecast, placeKey } from "./loadForecast";
+import { eveningOf, logFor, newId, saveLog } from "./sunsetLog";
 import { ShareButton } from "./ShareButton";
 import { SkyBackdrop } from "./SkyBackdrop";
 import { skyPalette, skyPhase } from "./sky";
 import { usePlace } from "./usePlace";
 import { useNow } from "./useNow";
 
-const LOG_KEY = "afterglow:my-sunsets";
 const RING = 2 * Math.PI * 60;
-
-/** A sunset rated in live mode, kept on this phone (uploaded once accounts exist). */
-export interface LoggedSunset {
-  date: string;
-  rating: number;
-  at: string;
-  lat: number;
-  lon: number;
-  forecast: { score: number; label: string; look: string };
-}
 
 type Stage = { title: string; line: string; until: number; from: number };
 
@@ -56,15 +46,6 @@ function tipsFor(forecast: Forecast) {
   }
   tips.push({ icon: RotateCcw, text: "Turn around now and then: a pink band, the Belt of Venus, rises in the east." });
   return tips;
-}
-
-function readLog(): LoggedSunset[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(LOG_KEY) ?? "[]");
-    return Array.isArray(value) ? (value as LoggedSunset[]) : [];
-  } catch {
-    return [];
-  }
 }
 
 /** Full-screen companion for the evening itself: a countdown, what to watch, and a quick rating. */
@@ -110,23 +91,30 @@ export function LiveMode() {
       new Date(Math.round(Date.parse(iso) / 60_000) * 60_000),
     );
 
-  const rate = (value: number) => {
+  const rate = async (value: number) => {
     if (!forecast || !place || !now) return;
-    const date = new Intl.DateTimeFormat("en-CA", { timeZone: forecast.location.timezone }).format(new Date(forecast.sun.sunset));
-    const entry: LoggedSunset = {
-      date,
-      rating: value,
-      at: now.toISOString(),
-      lat: Math.round(place.lat * 100) / 100,
-      lon: Math.round(place.lon * 100) / 100,
-      forecast: { score: forecast.score, label: forecast.label, look: forecast.look },
-    };
+    const date = eveningOf(forecast.sun.sunset);
+    const earlier = await logFor(date).catch(() => undefined);
     try {
-      localStorage.setItem(LOG_KEY, JSON.stringify([...readLog().filter((e) => e.date !== date), entry]));
+      await saveLog(
+        earlier
+          ? { ...earlier, rating: value, at: now.toISOString() }
+          : {
+              id: newId(),
+              date,
+              at: now.toISOString(),
+              rating: value,
+              colors: [],
+              lat: Math.round(place.lat * 100) / 100,
+              lon: Math.round(place.lon * 100) / 100,
+              forecast: { score: forecast.score, label: forecast.label, look: forecast.look, lookTitle: forecast.lookTitle, confidence: forecast.confidence },
+              photoIds: [],
+            },
+      );
+      setRating(value);
     } catch {
-      // Storage blocked: the rating can't be kept.
+      // Storage blocked: nothing to keep the rating in.
     }
-    setRating(value);
   };
 
   const stage = forecast && now ? stageFor(forecast, now.getTime(), format) : null;
@@ -198,7 +186,12 @@ export function LiveMode() {
 
           <div className="mt-auto pt-8 text-center">
             {rating ? (
-              <p className="text-[15px]">Saved: {rating} of 5. Thanks!</p>
+              <>
+                <p className="text-[15px]">Saved: {rating} of 5. Thanks!</p>
+                <Link href={`/log?rating=${rating}`} className="mt-2 inline-flex min-h-11 items-center rounded-full bg-[#fff7ec] px-4 text-sm font-semibold text-night">
+                  Add photos and notes
+                </Link>
+              </>
             ) : (
               <>
                 <p className="text-[15px] font-medium">How does it look?</p>
@@ -207,7 +200,7 @@ export function LiveMode() {
                     <button
                       key={n}
                       type="button"
-                      onClick={() => rate(n)}
+                      onClick={() => void rate(n)}
                       aria-label={`${n} of 5`}
                       className="grid size-12 place-items-center rounded-full border border-white/25 bg-night/40 text-base font-semibold backdrop-blur hover:bg-white/15"
                     >
@@ -217,7 +210,7 @@ export function LiveMode() {
                 </div>
               </>
             )}
-            <p className="mt-2 text-xs text-white/70">Ratings stay on this phone for now, to tune the forecast later.</p>
+            <p className="mt-2 text-xs text-white/70">Saved on this phone, in My sunsets.</p>
             <ShareButton forecast={forecast} placeLabel={placeLabel} className="mt-4" />
           </div>
         </>

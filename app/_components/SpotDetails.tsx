@@ -259,6 +259,9 @@ function SpotView({
           >
             Citymapper <ArrowUpRight className="size-4" aria-hidden="true" />
           </a>
+          <Link href={`/log?spot=${tile}/${spot.id}`} className="inline-flex min-h-11 items-center rounded-full bg-white/10 px-4 hover:bg-white/15">
+            Log a sunset here
+          </Link>
         </div>
         <p className="pt-1 text-xs leading-relaxed text-dusk">
           Found automatically from OpenStreetMap and Ordnance Survey data. Trees and building heights can be off, so

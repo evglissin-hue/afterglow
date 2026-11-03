@@ -14,6 +14,7 @@ import {
   LocateFixed,
   Map as MapIcon,
   MapPin,
+  NotebookPen,
   RefreshCw,
   Sunset,
 } from "lucide-react";
@@ -84,14 +85,15 @@ export default function Tonight() {
           <Sunset className="size-5 text-ember" aria-hidden="true" />
           Afterglow
         </div>
-        <nav className="flex items-center gap-1 text-sm text-mist">
-          <Link href="/map" className="flex items-center gap-1.5 rounded-full px-3 py-1.5 hover:bg-white/5">
-            <MapIcon className="size-4" aria-hidden="true" />
-            Map
+        <nav className="flex items-center gap-1 text-mist">
+          <Link href="/map" aria-label="Map" className="grid size-11 place-items-center rounded-full hover:bg-white/10 hover:text-ink">
+            <MapIcon className="size-5" />
           </Link>
-          <Link href="/about" className="flex items-center gap-1.5 rounded-full px-3 py-1.5 hover:bg-white/5">
-            <Info className="size-4" aria-hidden="true" />
-            About
+          <Link href="/me" aria-label="My sunsets" className="grid size-11 place-items-center rounded-full hover:bg-white/10 hover:text-ink">
+            <NotebookPen className="size-5" />
+          </Link>
+          <Link href="/about" aria-label="About" className="grid size-11 place-items-center rounded-full hover:bg-white/10 hover:text-ink">
+            <Info className="size-5" />
           </Link>
         </nav>
       </header>
@@ -273,6 +275,15 @@ function ForecastView({
               {now && now.getTime() < Date.parse(sun.sunset) ? "Sunset soon: go live" : "It's happening: go live"}
             </Link>
           )}
+          {isLogTime(forecast, now) && (
+            <Link
+              href="/log"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 text-sm font-medium backdrop-blur hover:bg-white/15"
+            >
+              <NotebookPen className="size-4" aria-hidden="true" />
+              Log it
+            </Link>
+          )}
           <ShareButton forecast={forecast} placeLabel={place.source === "search" && place.name ? place.name : "London"} />
         </div>
       </section>
@@ -335,6 +346,11 @@ function ForecastView({
       </section>
     </div>
   );
+}
+
+/** After sunset, until the forecast rolls over to tomorrow, offer to log it. */
+function isLogTime(forecast: Forecast, now: Date | null): boolean {
+  return now !== null && now.getTime() >= Date.parse(forecast.sun.sunset);
 }
 
 /** Live mode is offered from half an hour before sunset until last light. */
