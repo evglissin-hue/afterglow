@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getPosition } from "suncalc";
 import {
   Bell,
+  Camera,
   ChevronDown,
   ChevronRight,
   CircleAlert,
@@ -291,6 +292,15 @@ function ForecastView({
             >
               <NotebookPen className="size-4" aria-hidden="true" />
               Log it
+            </Link>
+          )}
+          {(isLiveTime(forecast, now) || isLogTime(forecast, now)) && (
+            <Link
+              href="/photo"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 text-sm font-medium backdrop-blur hover:bg-white/15"
+            >
+              <Camera className="size-4" aria-hidden="true" />
+              Photo
             </Link>
           )}
           <ShareButton forecast={forecast} placeLabel={place.source === "search" && place.name ? place.name : "London"} />
