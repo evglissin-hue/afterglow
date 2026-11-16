@@ -4,7 +4,7 @@
  * processed at whatever size it is given: the screen gets a small preview, the save gets every pixel.
  */
 
-export type LookId = "original" | "natural" | "golden" | "dusk";
+export type LookId = "original" | "natural" | "golden" | "ember" | "dusk";
 
 export interface LookRecipe {
   /** Exposure in stops, in linear light. A little under deepens the sky's color. */
@@ -21,6 +21,8 @@ export interface LookRecipe {
   vibrance: number;
   /** Extra color everywhere. */
   saturation: number;
+  /** Turns the warm colors toward red: yellow to orange, orange to red. Blues and greens are left alone. */
+  redShift: number;
   /** Color nudged into the shadows and into the highlights, as red, green, blue offsets. */
   shadows: readonly [number, number, number];
   highlights: readonly [number, number, number];
@@ -35,7 +37,7 @@ export interface PhotoLook {
   recipe: LookRecipe | null;
 }
 
-/** Few on purpose: the untouched photo and three ways a sunset is usually let down by a phone. */
+/** Few on purpose: the untouched photo, one gentle correction and three moods. */
 export const LOOKS: readonly PhotoLook[] = [
   { id: "original", name: "Original", hint: "As the camera took it", recipe: null },
   {
@@ -50,6 +52,7 @@ export const LOOKS: readonly PhotoLook[] = [
       blacks: -0.01,
       vibrance: 0.28,
       saturation: 0.04,
+      redShift: 0,
       shadows: [0, 0, 0],
       highlights: [0, 0, 0],
     },
@@ -66,8 +69,26 @@ export const LOOKS: readonly PhotoLook[] = [
       blacks: -0.015,
       vibrance: 0.55,
       saturation: 0.1,
+      redShift: 0,
       shadows: [-0.015, 0, 0.03],
       highlights: [0.045, 0.01, -0.045],
+    },
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    hint: "Deeper orange and red",
+    recipe: {
+      exposure: -0.36,
+      warmth: 0.16,
+      tint: 0.05,
+      contrast: 0.32,
+      blacks: -0.015,
+      vibrance: 0.5,
+      saturation: 0.12,
+      redShift: 0.22,
+      shadows: [-0.012, 0, 0.025],
+      highlights: [0.045, -0.005, -0.04],
     },
   },
   {
@@ -82,6 +103,7 @@ export const LOOKS: readonly PhotoLook[] = [
       blacks: 0.02,
       vibrance: 0.42,
       saturation: 0.05,
+      redShift: 0,
       shadows: [0, -0.01, 0.04],
       highlights: [0.03, -0.012, 0.02],
     },
@@ -138,7 +160,7 @@ export function prepareLook(recipe: LookRecipe): PreparedLook {
  */
 export function applyLook(pixels: Uint8ClampedArray, look: PreparedLook, offset = 0): void {
   const [red, green, blue] = look.curves;
-  const { vibrance, saturation, shadows, highlights } = look.recipe;
+  const { vibrance, saturation, redShift, shadows, highlights } = look.recipe;
   const toned = shadows.some((v) => v !== 0) || highlights.some((v) => v !== 0);
 
   for (let i = 0, n = offset; i < pixels.length; i += 4, n++) {
@@ -153,6 +175,19 @@ export function applyLook(pixels: Uint8ClampedArray, look: PreparedLook, offset 
       r += dark * shadows[0] + bright * highlights[0];
       g += dark * shadows[1] + bright * highlights[1];
       b += dark * shadows[2] + bright * highlights[2];
+      y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    // Warm colors (red above green above blue) lose some green, which turns them toward red. The
+    // pull fades to nothing at neutral and at pure yellow, so there is no edge where it starts.
+    if (redShift > 0 && r > g && g > b) {
+      const pull = redShift * (g - b) * Math.min(1, (r - g) / 0.08);
+      g -= pull;
+      // Half the brightness the green carried goes back to all three, so the sky doesn't dull.
+      const back = pull * 0.7152 * 0.5;
+      r += back;
+      g += back;
+      b += back;
       y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
 

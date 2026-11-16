@@ -16,7 +16,7 @@ type Busy = { what: "opening" } | { what: "finishing"; done: number } | null;
 
 /**
  * A sunset photo with a look: taken with the phone's own camera (or picked from its photos), shown
- * with three looks and the original, and saved at full size. Nothing leaves the phone.
+ * with four looks and the original, and saved at full size. Nothing leaves the phone.
  */
 export function SunsetPhoto() {
   const router = useRouter();
@@ -173,7 +173,7 @@ export function SunsetPhoto() {
             {look.recipe ? " · hold the photo to compare" : ""}
           </p>
 
-          <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Look">
+          <div className="mt-3 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Look">
             {LOOKS.map((option) => (
               <LookButton key={option.id} photo={photo} look={option} selected={option.id === lookId} onSelect={() => setLookId(option.id)} />
             ))}

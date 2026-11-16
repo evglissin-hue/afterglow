@@ -9,6 +9,7 @@ const NEUTRAL: LookRecipe = {
   blacks: 0,
   vibrance: 0,
   saturation: 0,
+  redShift: 0,
   shadows: [0, 0, 0],
   highlights: [0, 0, 0],
 };
@@ -16,10 +17,11 @@ const NEUTRAL: LookRecipe = {
 const pixels = (...rgb: [number, number, number][]) => new Uint8ClampedArray(rgb.flatMap(([r, g, b]) => [r, g, b, 255]));
 const golden = prepareLook(lookById("golden").recipe!);
 const dusk = prepareLook(lookById("dusk").recipe!);
+const ember = prepareLook(lookById("ember").recipe!);
 
 describe("the looks on offer", () => {
-  it("are the original and three recipes, no more", () => {
-    expect(LOOKS.map((l) => l.id)).toEqual(["original", "natural", "golden", "dusk"]);
+  it("are the original and four recipes, no more", () => {
+    expect(LOOKS.map((l) => l.id)).toEqual(["original", "natural", "golden", "ember", "dusk"]);
     expect(LOOKS[0].recipe).toBeNull();
     expect(LOOKS.slice(1).every((l) => l.recipe)).toBe(true);
   });
@@ -48,6 +50,36 @@ describe("applyLook", () => {
     expect(warm[0] - warm[2]).toBeGreaterThan(sky[0] - sky[2] + 15); // more red over blue
     expect(warm[1]).toBeLessThan(sky[1]); // a little under-exposed
     expect(cool[2]).toBeGreaterThan(cool[1]); // blue over green: violet
+  });
+
+  it("Ember turns the warm colors toward red and leaves blue sky to the other settings", () => {
+    const hue = (r: number, g: number, b: number) => (60 * (g - b)) / (Math.max(r, g, b) - Math.min(r, g, b)); // warm hues: 0 red, 60 yellow
+    const glow: [number, number, number] = [250, 190, 70]; // the yellow-orange band at the horizon
+    const asGolden = pixels(glow);
+    const asEmber = pixels(glow);
+    applyLook(asGolden, golden);
+    applyLook(asEmber, ember);
+    expect(hue(asEmber[0], asEmber[1], asEmber[2])).toBeLessThan(hue(asGolden[0], asGolden[1], asGolden[2]) - 4);
+    expect(hue(asEmber[0], asEmber[1], asEmber[2])).toBeGreaterThan(8); // orange, not pushed to pure red
+
+    // A blue pixel is untouched by the shift itself: same result with it switched off.
+    const blue = pixels([90, 130, 200]);
+    const blueNoShift = pixels([90, 130, 200]);
+    applyLook(blue, ember);
+    applyLook(blueNoShift, prepareLook({ ...lookById("ember").recipe!, redShift: 0 }));
+    expect(blue).toEqual(blueNoShift);
+  });
+
+  it("the red shift has no edge where it starts", () => {
+    // From neutral grey into warm, one small step at a time: the output moves in small steps too.
+    const recipe = { ...NEUTRAL, redShift: 0.3 };
+    let last: number | null = null;
+    for (let warm = 0; warm <= 60; warm++) {
+      const px = pixels([150 + warm, 150, 150 - warm]);
+      applyLook(px, prepareLook(recipe));
+      if (last !== null) expect(Math.abs(px[1] - last)).toBeLessThanOrEqual(2);
+      last = px[1];
+    }
   });
 
   it("keeps the sun and its halo from clipping to flat color", () => {
