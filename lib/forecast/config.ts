@@ -7,6 +7,12 @@
 export const SAMPLE_KM = [-25, 0, 25, 50, 100, 150, 200, 300] as const;
 
 export const config = {
+  /**
+   * Bump when the formula's shape changes, so logged scores can be told apart.
+   * 1: one product of factors. 2: the clear-sky glow is scored apart from lit cloud (16 Nov 2026).
+   */
+  formula: 2,
+
   /** Weather is read this many minutes after sunset, around typical peak color. */
   evalOffsetMin: 10,
 
@@ -16,8 +22,16 @@ export const config = {
   gapWeights: [[100, 0.15], [150, 0.25], [200, 0.3], [300, 0.3]],
   /** Low cloud overhead is averaged over these points. */
   lowOverKm: [0, 25],
+  /** Open sky: how free of high and mid cloud it is above and around you. */
+  openSkyWeights: [[-25, 0.15], [0, 0.5], [25, 0.35]],
 
-  potential: [[0, 0.3], [0.1, 0.45], [0.3, 0.85], [0.4, 1], [0.7, 1], [0.9, 0.85], [1, 0.7]],
+  potential: [[0, 0.4], [0.1, 0.5], [0.3, 0.85], [0.4, 1], [0.7, 1], [0.9, 0.85], [1, 0.7]],
+  /**
+   * The clear-sky glow: the horizon gradient an open sky gives without any cloud to light.
+   * `base` is its worth under a fully open sky (keep it equal to the first `potential` value);
+   * a cloud bank far toward the sun takes at most `gapMax` of it, where lit cloud loses `gap.max`.
+   */
+  glow: { base: 0.4, gapMax: 0.25 },
   gap: { max: 0.85, from: 0.2, to: 0.8 },
   lowCloud: { max: 0.8, from: 0.4, to: 0.9 },
 
@@ -34,6 +48,8 @@ export const config = {
   look: {
     greyLowOver: 0.85,
     blockedGap: 0.75,
+    /** With at least this much open sky, a far cloud bank dims the glow rather than blocking the show. */
+    openSky: 0.7,
     hazyAir: 0.6,
     cleanCanvas: 0.1,
     wholeSkyCanvas: 0.75,

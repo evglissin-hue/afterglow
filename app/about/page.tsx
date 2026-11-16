@@ -31,7 +31,8 @@ export default function AboutPage() {
           After sunset, the clouds above you are lit by sunlight that skims in from up to 300 km away, toward the
           sun. So Afterglow checks the forecast at 8 points along tonight&apos;s sunset direction. High and mid
           cloud near you is the canvas that lights up. Low and mid cloud far toward the sun can block the light
-          before it gets there, even when your own sky looks perfect.
+          before it gets there, even when your own sky looks perfect. A clear sky&apos;s own glow needs that path
+          much less, so under an open sky a far cloud bank only takes a little off the score.
         </Section>
 
         <Section title="Don't leave at sunset">
@@ -70,7 +71,7 @@ export default function AboutPage() {
         <Section title="Privacy">
           Your location stays in your browser. To get the forecast, your browser asks Open-Meteo for a location
           rounded to roughly 10 km, plus points along the sunset line. Place search sends what you type to Photon
-          (komoot&apos;s geocoder, with OpenStreetMap data). Favorites and sunset ratings stay on your phone. Nothing is
+          (komoot&apos;s geocoder, with OpenStreetMap data). Favorites, sunset ratings and the photos you take stay on your phone. Nothing is
           stored on our servers.
         </Section>
       </div>

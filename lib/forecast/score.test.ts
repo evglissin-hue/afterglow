@@ -17,7 +17,7 @@ const canvasOnly = (layers: Layers) => (km: number) => (km <= 50 ? layers : {});
 describe("scoreSunset scenarios", () => {
   it("clear sky: a fair clean gradient", () => {
     const r = scoreSunset(sky(() => ({})));
-    expect(r.score).toBe(30);
+    expect(r.score).toBe(40);
     expect(r.label).toBe("Fair");
     expect(r.look).toBe("clean");
   });
@@ -38,15 +38,53 @@ describe("scoreSunset scenarios", () => {
 
   it("cloud bank on the light path blocks it", () => {
     const r = scoreSunset(sky((km) => (km >= 150 ? { low: 0.9 } : { high: 0.5 })));
-    expect(r.score).toBeGreaterThanOrEqual(10);
-    expect(r.score).toBeLessThanOrEqual(20);
+    expect(r.score).toBeGreaterThanOrEqual(20);
+    expect(r.score).toBeLessThanOrEqual(30);
     expect(r.look).toBe("blocked");
     expect(r.why.map((w) => w.text)).toContain("Cloud bank toward the sunset");
   });
 
+  it("solid cloud overhead with a bank on the path scores as before the glow split", () => {
+    const r = scoreSunset(sky((km) => (km >= 150 ? { low: 0.9 } : { mid: 1 })));
+    expect(r.factors.openSky).toBe(0);
+    expect(r.factors.glow).toBe(0);
+    expect(r.score).toBe(Math.round(100 * r.factors.potential * r.factors.gap));
+    expect(r.look).toBe("blocked");
+  });
+
+  it("open sky with a cloud bank far toward the sun keeps most of its glow", () => {
+    const clear = scoreSunset(sky(() => ({})));
+    const bank = scoreSunset(sky((km) => (km >= 100 ? { low: 0.95, mid: 1 } : {})));
+    expect(bank.score).toBe(32);
+    expect(bank.score).toBeLessThan(clear.score);
+    expect(bank.label).toBe("Fair");
+    expect(bank.look).toBe("clean");
+    expect(bank.why.map((w) => w.text)).toContain("Cloud bank far toward the sunset may cut the glow short");
+  });
+
+  it("the evening that prompted the glow split: open sky over east London, a bank beyond 50 km", () => {
+    // UK Met Office cloud for 16 Nov 2026, read at 16:07 for a 16:09 sunset. The old formula gave 11
+    // ("Blocked"); the owner watched it from the river and rated it 3 of 5.
+    const recorded: Record<number, Layers> = {
+      [-25]: { low: 0.53, mid: 0, high: 0.21 },
+      0: { low: 0.01, mid: 0, high: 0.06 },
+      25: { low: 0.01, mid: 0, high: 0.13 },
+      50: { low: 0.96, mid: 0.32, high: 0.32 },
+      100: { low: 0.93, mid: 1, high: 0.6 },
+      150: { low: 0.97, mid: 1, high: 0.86 },
+      200: { low: 0.95, mid: 0.98, high: 0.44 },
+      300: { low: 0.8, mid: 1, high: 0.4 },
+    };
+    const r = scoreSunset(sky((km) => recorded[km], { visibilityKm: 12.9, humidity: 70, aod: 0.05 }));
+    expect(r.score).toBeGreaterThanOrEqual(28);
+    expect(r.score).toBeLessThanOrEqual(34);
+    expect(r.label).toBe("Fair");
+    expect(r.look).toBe("clean");
+  });
+
   it("low overcast is grey", () => {
     const r = scoreSunset(sky(() => ({ low: 0.95, mid: 0.3 })));
-    expect(r.score).toBeLessThan(5);
+    expect(r.score).toBeLessThan(10);
     expect(r.look).toBe("grey");
   });
 

@@ -34,10 +34,15 @@ export type Confidence = "high" | "medium" | "low";
 
 export interface Factors {
   canvas: number;
+  /** Share of the sky above and around you free of high and mid cloud, 0–1. */
+  openSky: number;
   highShare: number;
   lowOver: number;
   gapBlock: number;
   potential: number;
+  /** What the clear-sky glow adds to the score (0–1), after any cloud bank far toward the sun. */
+  glow: number;
+  /** How much of the lit-cloud color survives the light path, 0–1. */
   gap: number;
   lowCloud: number;
   air: number;
@@ -74,7 +79,7 @@ export const LOOKS: Record<Look, { title: string; text: string }> = {
   golden: { title: "Golden to pink", text: "A mix of cloud layers to catch the light." },
 };
 
-type Weights = Config["canvasWeights"] | Config["gapWeights"];
+type Weights = Config["canvasWeights"] | Config["gapWeights"] | Config["openSkyWeights"];
 
 function weightedMean(points: SamplePoint[], weights: Weights, value: (p: SamplePoint) => number) {
   let sum = 0;
@@ -105,8 +110,17 @@ export function scoreSunset(input: ScoreInput, cfg: Config = defaultConfig): Sco
   const lowOver = overhead.length ? overhead.reduce((s, p) => s + p.low, 0) / overhead.length : 0;
   const gapBlock = weightedMean(points, cfg.gapWeights, (p) => union(p.low, p.mid));
 
+  const openSky = 1 - weightedMean(points, cfg.openSkyWeights, (p) => union(p.high, p.mid));
+
+  // The sky's promise has two parts. The clear-sky glow needs open sky and little else, so a cloud
+  // bank far toward the sun only dents it. Color on lit cloud needs the light path, so it takes
+  // the full gap penalty.
   const potential = curve(cfg.potential, canvas);
-  const gap = 1 - cfg.gap.max * smoothstep(cfg.gap.from, cfg.gap.to, gapBlock);
+  const blocked = smoothstep(cfg.gap.from, cfg.gap.to, gapBlock);
+  const gap = 1 - cfg.gap.max * blocked;
+  const glowShare = Math.min(potential, cfg.glow.base * openSky);
+  const glow = glowShare * (1 - cfg.glow.gapMax * blocked);
+  const lit = (potential - glowShare) * gap;
   const lowCloud = 1 - cfg.lowCloud.max * smoothstep(cfg.lowCloud.from, cfg.lowCloud.to, lowOver);
   const air = Math.min(
     observer.aod == null ? 1 : curve(cfg.aod, observer.aod),
@@ -125,13 +139,13 @@ export function scoreSunset(input: ScoreInput, cfg: Config = defaultConfig): Sco
     gapBlock < cfg.clearing.maxGapBlock;
 
   const score = clamp(
-    Math.round(100 * potential * gap * lowCloud * air * rain) + (clearing ? cfg.clearing.bonus : 0),
+    Math.round(100 * (glow + lit) * lowCloud * air * rain) + (clearing ? cfg.clearing.bonus : 0),
     0,
     100,
   );
 
   const factors: Factors = {
-    canvas, highShare, lowOver, gapBlock, potential, gap, lowCloud, air, rain, clearing,
+    canvas, openSky, highShare, lowOver, gapBlock, potential, glow, gap, lowCloud, air, rain, clearing,
     aod: observer.aod,
     visibilityKm: observer.visibilityKm,
     humidity: observer.humidity,
@@ -151,8 +165,12 @@ export function scoreSunset(input: ScoreInput, cfg: Config = defaultConfig): Sco
 /** The likely look: first matching rule wins (SPEC.md §5.5). */
 export function lookFor(f: Factors, score: number, cfg: Config = defaultConfig): Look {
   const rules = cfg.look;
+  // A cloud bank far toward the sun blocks the show when there's cloud above you waiting to be lit.
+  // Under an open sky it only shortens the horizon glow.
+  const bank = f.gapBlock >= rules.blockedGap;
+  const openAbove = f.openSky >= rules.openSky;
   if (f.rainNow >= cfg.rain.heavyMmH || f.lowOver >= rules.greyLowOver) return "grey";
-  if (f.gapBlock >= rules.blockedGap) return "blocked";
+  if (bank && !openAbove) return "blocked";
   if (f.air < rules.hazyAir) return "hazy";
   if (labelFor(score, cfg) === "Poor") {
     // A poor score without one obvious cause: name whatever holds it back most,
@@ -165,7 +183,7 @@ export function lookFor(f: Factors, score: number, cfg: Config = defaultConfig):
     const [look, value] = culprits.reduce((worst, next) => (next[1] < worst[1] ? next : worst));
     if (value < 0.9) return look;
   }
-  if (f.canvas < rules.cleanCanvas) return "clean";
+  if (f.canvas < rules.cleanCanvas || bank) return "clean";
   if (f.canvas >= rules.wholeSkyCanvas && f.gapBlock <= rules.wholeSkyGap) return "wholeSky";
   if (f.highShare >= rules.dominantShare && (f.aod == null || f.aod < rules.pastelMaxAod)) return "pastel";
   if (1 - f.highShare >= rules.dominantShare) return "fiery";
@@ -175,17 +193,20 @@ export function lookFor(f: Factors, score: number, cfg: Config = defaultConfig):
 function reasonsFor(f: Factors): Reason[] {
   const why: Reason[] = [];
   const hiddenByLowCloud = f.lowOver >= defaultConfig.look.greyLowOver;
+  const openAbove = f.openSky >= defaultConfig.look.openSky;
 
   if (hiddenByLowCloud) {
     // Whatever is above won't be visible, so don't praise it.
   } else if (f.canvas < 0.1) why.push({ text: "Not much cloud to light up", tone: "neutral" });
   else if (f.canvas >= 0.9) why.push({ text: "Thick cloud cover", tone: "bad" });
+  else if (openAbove && f.gapBlock >= 0.6) why.push({ text: "Open sky above you for the horizon glow", tone: "good" });
   else if (f.highShare >= 0.6) why.push({ text: "High cloud to catch the light", tone: "good" });
   else if (f.highShare <= 0.4) why.push({ text: "Mid-level cloud to catch the light", tone: "good" });
   else why.push({ text: "High and mid cloud to catch the light", tone: "good" });
 
   if (f.gapBlock <= 0.3) why.push({ text: "Clear gap toward the sun", tone: "good" });
   else if (f.gapBlock < 0.6) why.push({ text: "Some cloud toward the sun", tone: "neutral" });
+  else if (openAbove && !hiddenByLowCloud) why.push({ text: "Cloud bank far toward the sunset may cut the glow short", tone: "bad" });
   else why.push({ text: "Cloud bank toward the sunset", tone: "bad" });
 
   if (f.lowOver >= 0.85) why.push({ text: "Solid low cloud overhead", tone: "bad" });
@@ -245,5 +266,6 @@ export function combineModels<M extends string>(
 /** Which layer will catch the light, to pick the best color window. */
 export function dominantLayer(f: Factors): "high" | "mid" | "clear" {
   if (f.canvas < defaultConfig.look.cleanCanvas) return "clear";
+  if (f.gapBlock >= defaultConfig.look.blockedGap && f.openSky >= defaultConfig.look.openSky) return "clear";
   return f.highShare >= 0.5 ? "high" : "mid";
 }
