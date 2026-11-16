@@ -1,5 +1,5 @@
 import { getForecast, type Forecast } from "@/lib/forecast/getForecast";
-import { FORECAST_KEY } from "./forecastCache";
+import { FORECAST_KEY, rememberEveningForecast } from "./forecastCache";
 import type { Place } from "./usePlace";
 
 /** How long a saved forecast is fresh enough to show without asking again. */
@@ -34,6 +34,7 @@ export async function loadForecast(place: Place): Promise<Fetched> {
   } catch {
     // Private mode or full storage: fine without a cache.
   }
+  rememberEveningForecast(forecast);
   return { forecast };
 }
 

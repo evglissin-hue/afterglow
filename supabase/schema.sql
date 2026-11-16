@@ -102,10 +102,29 @@ begin
 end
 $setup$;
 
+-- 5. The forecast archive: for a few London grid cells, the forecast made before each
+--    sunset and the same sunset scored again afterwards (the 15-minute job fills it).
+--    It's what the score is checked and tuned against. Weather only, nothing personal.
+create table if not exists public.forecast_archive (
+  id        uuid primary key default gen_random_uuid(),
+  evening   date not null,                                    -- the sunset's date in London
+  cell      text not null check (length(cell) <= 20),         -- the grid cell, e.g. '51.5,-0.1'
+  kind      text not null check (kind in ('before', 'after')),
+  made_at   timestamptz not null default now(),
+  score     smallint not null,
+  formula   smallint,                                         -- the version of the score formula
+  snapshot  jsonb not null,                                   -- the score with the cloud and air it came from
+  unique (evening, cell, kind)
+);
+alter table public.forecast_archive enable row level security;
+revoke all on table public.forecast_archive from anon, authenticated;
+grant select, insert, update, delete on table public.forecast_archive to service_role;
+
 -- To check it's working, run these one at a time whenever you like:
 --   select jobname, schedule, active from cron.job;
 --   select status, start_time, return_message from cron.job_run_details order by start_time desc limit 5;
 --   select created, status_code, content from net._http_response order by created desc limit 5;
+--   select evening, cell, kind, score from public.forecast_archive order by evening desc, cell, kind limit 20;
 -- A healthy run answers status 200 with {"ok":true,…}; 401 means the CRON_SECRET here and in
 -- the site doesn't match (a CRON_SECRET set in Vercel overrides the one made here; remove it);
 -- an HTML page about logging in means the site is behind Vercel's login: switch that off, or

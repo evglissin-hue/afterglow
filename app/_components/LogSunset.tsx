@@ -7,7 +7,8 @@ import { ArrowLeft, Camera, X } from "lucide-react";
 import { distanceKm } from "@/lib/geo";
 import { sunEvents } from "@/lib/sun";
 import { tileKey, type Spot } from "@/lib/spots";
-import { readCachedForecast } from "./forecastCache";
+import { meaningOf, snapshotOf } from "@/lib/forecast/calibration";
+import { readCachedForecast, readEveningForecast } from "./forecastCache";
 import {
   COLOR_TAGS,
   eveningOf,
@@ -60,6 +61,7 @@ export function LogSunset() {
     const params = new URLSearchParams(window.location.search);
     const [tile, id] = (params.get("spot") ?? "").split("/");
     const rating = Number(params.get("rating"));
+    const pendingId = params.get("photo");
     const sunset = eveningNow(new Date(), place.lat, place.lon);
     logFor(eveningOf(sunset)).then(async (log) => {
       if (cancelled) return;
@@ -69,11 +71,15 @@ export function LogSunset() {
         setExisting(log);
         const { rating: r, colors, view, spot, note } = log;
         setDraft({ rating: r, colors, view, spot, note });
-        const stored = (await Promise.all(log.photoIds.map(getPhoto))).filter((p): p is StoredPhoto => Boolean(p));
-        if (!cancelled) setPhotos(stored.map((p) => ({ ...p, url: URL.createObjectURL(p.thumb) })));
       } else if (rating >= 1 && rating <= 5) {
         setDraft((d) => ({ ...d, rating }));
       }
+      // The log's own photos, plus one just made in the photo screen (?photo=<id>).
+      const stored = (await Promise.all((log?.photoIds ?? []).map(getPhoto))).filter((p): p is StoredPhoto => Boolean(p));
+      const pending = pendingId && !stored.some((p) => p.id === pendingId) ? await getPhoto(pendingId) : undefined;
+      if (pending && stored.length < MAX_PHOTOS) stored.push(pending);
+      else if (pending) setError(`Up to ${MAX_PHOTOS} photos. Remove one to add the new one.`);
+      if (!cancelled && stored.length) setPhotos(stored.map((p) => ({ ...p, url: URL.createObjectURL(p.thumb) })));
     });
     return () => {
       cancelled = true;
@@ -131,8 +137,12 @@ export function LogSunset() {
   const save = async () => {
     if (!evening || !place || draft.rating < 1) return;
     setBusy("saving");
-    const forecast = readCachedForecast(place);
-    const sameEvening = forecast && eveningOf(forecast.sun.sunset) === eveningOf(evening);
+    // Tonight's forecast while it's still showing, else the copy remembered for that evening.
+    const cached = readCachedForecast(place);
+    const forecast =
+      cached && eveningOf(cached.sun.sunset) === eveningOf(evening) ? cached : readEveningForecast(eveningOf(evening), place);
+    // Keep the forecast already on the log, unless it lacks the inputs and this one has them.
+    const kept = existing?.forecast?.inputs || !forecast ? existing?.forecast : undefined;
     const log: SunsetLog = {
       ...draft,
       id: existing?.id ?? newId(),
@@ -140,11 +150,7 @@ export function LogSunset() {
       at: new Date().toISOString(),
       lat: Math.round(place.lat * 100) / 100,
       lon: Math.round(place.lon * 100) / 100,
-      forecast:
-        existing?.forecast ??
-        (sameEvening
-          ? { score: forecast.score, label: forecast.label, look: forecast.look, lookTitle: forecast.lookTitle, confidence: forecast.confidence }
-          : undefined),
+      forecast: kept ?? (forecast ? snapshotOf(forecast) : undefined),
       photoIds: photos.map((p) => p.id),
     };
     try {
@@ -199,6 +205,9 @@ export function LogSunset() {
               </button>
             ))}
           </div>
+          <p className="mt-2 text-sm text-mist" aria-live="polite">
+            {meaningOf(draft.rating) ?? "1 is nothing to see, 3 is nice, 5 is one to remember."}
+          </p>
         </fieldset>
 
         <fieldset>
@@ -289,7 +298,13 @@ export function LogSunset() {
               </label>
             )}
           </div>
-          <p className="mt-2 text-xs text-dusk">Photos are shrunk on your phone; where they were taken is removed.</p>
+          <p className="mt-2 text-xs text-dusk">
+            Photos are shrunk on your phone; where they were taken is removed.{" "}
+            <Link href="/photo" className="text-mist underline underline-offset-2 hover:text-ink">
+              Take one with a sunset look
+            </Link>
+            .
+          </p>
         </div>
 
         {error && (

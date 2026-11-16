@@ -3,6 +3,10 @@
  * future server tables (SPEC §8: logs, photos), so they can be uploaded once accounts exist.
  */
 
+import { config } from "@/lib/forecast/config";
+import type { ArchiveKind, ArchivedForecast } from "@/lib/forecast/archive";
+import type { ForecastSnapshot } from "@/lib/forecast/calibration";
+
 export type ViewAnswer = "yes" | "partly" | "blocked";
 
 export interface SunsetLog {
@@ -19,8 +23,8 @@ export interface SunsetLog {
   /** Where, rounded to about 1 km. */
   lat?: number;
   lon?: number;
-  /** The forecast at the time, to see how it did. */
-  forecast?: { score: number; label: string; look: string; lookTitle?: string; confidence?: string };
+  /** The forecast for that evening with what it was scored from, to see how it did and to tune the score. */
+  forecast?: ForecastSnapshot;
   photoIds: string[];
 }
 
@@ -99,8 +103,57 @@ export async function deleteLog(log: SunsetLog): Promise<void> {
   });
 }
 
+/** Marks a photo made in the photo screen that hasn't joined a log yet. */
+const PENDING = "pending";
+
+/**
+ * Keeps a photo for the log screen to pick up (`/log?photo=<id>`). Only the newest waits: an
+ * earlier one that never made it into a log is dropped.
+ */
+export async function keepPendingPhoto(photo: StoredPhoto): Promise<void> {
+  await run(["photos"], "readwrite", (tx) => {
+    const store = tx.objectStore("photos");
+    const waiting = store.index("logId").openCursor(IDBKeyRange.only(PENDING));
+    waiting.onsuccess = () => {
+      const cursor = waiting.result;
+      if (!cursor) return;
+      if (cursor.primaryKey !== photo.id) cursor.delete();
+      cursor.continue();
+    };
+    tx.objectStore("photos").put({ ...photo, logId: PENDING });
+  });
+}
+
 export async function getPhoto(id: string): Promise<StoredPhoto | undefined> {
   return run<StoredPhoto>(["photos"], "readonly", (tx) => tx.objectStore("photos").get(id));
+}
+
+/**
+ * Every log without its photos, as a file to send on: the ratings and the forecasts they were given
+ * against are what the score is tuned from (SPEC.md §5.7). Places are already rounded to about 1 km.
+ */
+export async function exportLogs(): Promise<File> {
+  const logs = (await listLogs()).map(({ photoIds, ...log }) => ({ ...log, photos: photoIds.length }));
+  const archive = await archiveFor(logs).catch(() => []);
+  const withArchive = logs.map((log) => {
+    const rows = archive.filter((row) => row.evening === log.date);
+    const snapshotOf = (kind: ArchiveKind) => rows.find((row) => row.kind === kind)?.snapshot;
+    return rows.length ? { ...log, archive: { before: snapshotOf("before"), after: snapshotOf("after") } } : log;
+  });
+  const body = JSON.stringify({ app: "afterglow", exportedAt: new Date().toISOString(), formula: config.formula, logs: withArchive }, null, 1);
+  return new File([body], `afterglow-sunsets-${eveningOf(new Date())}.json`, { type: "application/json" });
+}
+
+/** The server's archived forecasts for the logged evenings (SPEC.md §5.7), when it has them and there's a signal. */
+async function archiveFor(logs: { date: string; lat?: number; lon?: number }[]): Promise<ArchivedForecast[]> {
+  const placed = logs.filter((log) => log.lat != null && log.lon != null);
+  if (!placed.length) return [];
+  const oldest = placed.reduce((a, b) => (a.date < b.date ? a : b));
+  const days = Math.min(365, Math.ceil((Date.now() - Date.parse(`${oldest.date}T12:00:00Z`)) / 86_400_000) + 1);
+  // Logs are a walk from home: the cell of the newest one stands for all of them.
+  const response = await fetch(`/api/archive?lat=${placed[0].lat}&lon=${placed[0].lon}&days=${days}`);
+  if (!response.ok) return [];
+  return ((await response.json()) as { rows: ArchivedForecast[] }).rows;
 }
 
 /** Quick ratings from live mode (kept in localStorage before logs existed) become logs. */

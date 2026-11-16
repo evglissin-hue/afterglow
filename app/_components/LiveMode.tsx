@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getPosition } from "suncalc";
-import { Clock, Cloud, Compass, RotateCcw, X } from "lucide-react";
+import { Camera, Clock, Cloud, Compass, RotateCcw, X } from "lucide-react";
+import { meaningOf, snapshotOf } from "@/lib/forecast/calibration";
 import type { Forecast } from "@/lib/forecast/getForecast";
 import { loadForecast, placeKey } from "./loadForecast";
 import { eveningOf, logFor, newId, saveLog } from "./sunsetLog";
@@ -107,7 +108,7 @@ export function LiveMode() {
               colors: [],
               lat: Math.round(place.lat * 100) / 100,
               lon: Math.round(place.lon * 100) / 100,
-              forecast: { score: forecast.score, label: forecast.label, look: forecast.look, lookTitle: forecast.lookTitle, confidence: forecast.confidence },
+              forecast: snapshotOf(forecast),
               photoIds: [],
             },
       );
@@ -187,7 +188,9 @@ export function LiveMode() {
           <div className="mt-auto pt-8 text-center">
             {rating ? (
               <>
-                <p className="text-[15px]">Saved: {rating} of 5. Thanks!</p>
+                <p className="text-[15px]">
+                  Saved: {rating} of 5, {meaningOf(rating)?.toLowerCase()}. Thanks!
+                </p>
                 <Link href={`/log?rating=${rating}`} className="mt-2 inline-flex min-h-11 items-center rounded-full bg-[#fff7ec] px-4 text-sm font-semibold text-night">
                   Add photos and notes
                 </Link>
@@ -208,10 +211,17 @@ export function LiveMode() {
                     </button>
                   ))}
                 </div>
+                <p className="mt-2 text-xs text-white/70">1 is nothing to see, 3 is nice, 5 is one to remember.</p>
               </>
             )}
             <p className="mt-2 text-xs text-white/70">Saved on this phone, in My sunsets.</p>
-            <ShareButton forecast={forecast} placeLabel={placeLabel} className="mt-4" />
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Link href="/photo" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#fff7ec] px-4 text-sm font-semibold text-night">
+                <Camera className="size-4" aria-hidden="true" />
+                Take a photo
+              </Link>
+              <ShareButton forecast={forecast} placeLabel={placeLabel} />
+            </div>
           </div>
         </>
       )}

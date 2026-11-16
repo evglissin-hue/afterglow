@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Plus, Star, Trash2 } from "lucide-react";
-import { deleteLog, getPhoto, listLogs, type SunsetLog } from "./sunsetLog";
+import { ArrowLeft, Plus, Share, Star, Trash2 } from "lucide-react";
+import { meaningOf, rescore, review } from "@/lib/forecast/calibration";
+import { deleteLog, exportLogs, getPhoto, listLogs, type SunsetLog } from "./sunsetLog";
 
 /** Good evening by the forecast's measure (Good or better) and by yours (3 of 5 or more). */
 const forecastSaidGood = (score: number) => score >= 45;
@@ -33,6 +34,29 @@ export function MySunsets() {
 
   const rated = (logs ?? []).filter((l) => l.forecast);
   const matched = rated.filter((l) => forecastSaidGood(l.forecast!.score) === youSaidGood(l.rating)).length;
+  const { bias } = review(logs ?? []);
+
+  // Hand the logs on as a file (no photos): through the share sheet where it takes files, else a download.
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const exportAll = async () => {
+    setExportNote(null);
+    try {
+      const file = await exportLogs();
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My Afterglow sunsets" });
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setExportNote(`Saved as ${file.name}.`);
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") setExportNote("Couldn't export the sunsets.");
+    }
+  };
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-14">
@@ -72,6 +96,12 @@ export function MySunsets() {
                   Right means it said Good or better and you gave it 3 or more, or it said Fair or Poor and you gave it 1
                   or 2.
                 </p>
+                {Math.abs(bias) >= 5 && (
+                  <p className="mt-2 text-sm text-mist">
+                    Today&apos;s score would run about {Math.abs(bias)} points {bias < 0 ? "below" : "above"} your ratings on
+                    these evenings.
+                  </p>
+                )}
               </>
             ) : (
               <p className="mt-1 text-sm text-mist">Log an evening when the forecast is open on this phone to compare.</p>
@@ -83,9 +113,22 @@ export function MySunsets() {
               <LogCard key={log.id} log={log} onDelete={() => void remove(log)} />
             ))}
           </ul>
-          <p className="mt-6 text-xs leading-relaxed text-dusk">
-            Saved on this phone only. When accounts arrive, you&apos;ll be able to upload them, share photos and help tune
-            the forecast.
+          <button
+            type="button"
+            onClick={() => void exportAll()}
+            className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 text-sm font-medium hover:bg-white/10"
+          >
+            <Share className="size-4" aria-hidden="true" />
+            Export for tuning
+          </button>
+          {exportNote && (
+            <p className="mt-2 text-sm text-mist" role="status">
+              {exportNote}
+            </p>
+          )}
+          <p className="mt-3 text-xs leading-relaxed text-dusk">
+            Saved on this phone only. The export is your ratings and the forecasts they were up against, without
+            photos: it&apos;s what the score gets tuned from.
           </p>
         </>
       )}
@@ -113,6 +156,7 @@ function LogCard({ log, onDelete }: { log: SunsetLog; onDelete: () => void }) {
     new Date(`${log.date}T12:00:00Z`),
   );
   const match = log.forecast ? forecastSaidGood(log.forecast.score) === youSaidGood(log.rating) : null;
+  const today = rescore(log.forecast);
 
   return (
     <li className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -123,6 +167,7 @@ function LogCard({ log, onDelete }: { log: SunsetLog; onDelete: () => void }) {
             {[1, 2, 3, 4, 5].map((n) => (
               <Star key={n} className={`size-4 ${n <= log.rating ? "fill-[#ffc35c] text-[#ffc35c]" : "text-white/20"}`} aria-hidden="true" />
             ))}
+            <span className="ml-1.5 text-sm text-mist">{meaningOf(log.rating)}</span>
           </p>
           {log.spot && (
             <Link href={`/spots/${log.spot.tile}/${log.spot.id}`} className="mt-1 block truncate text-sm underline-offset-2 hover:underline">
@@ -149,6 +194,7 @@ function LogCard({ log, onDelete }: { log: SunsetLog; onDelete: () => void }) {
         <p className="mt-3 text-xs text-dusk">
           Forecast: {log.forecast.label} ({log.forecast.score}){log.forecast.lookTitle ? `, ${log.forecast.lookTitle.toLowerCase()}` : ""}
           {match === null ? "" : match ? " · right" : " · off"}
+          {today !== null && today !== log.forecast.score ? ` · today's score would be ${today}` : ""}
         </p>
       )}
     </li>

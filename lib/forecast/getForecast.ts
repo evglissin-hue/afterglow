@@ -1,7 +1,8 @@
 import { compassPoint, roundTo, type LatLon } from "@/lib/geo";
-import { nextSunset, type CloudLayer } from "@/lib/sun";
+import { nextSunset, sunEvents, type CloudLayer } from "@/lib/sun";
 import { WeatherUnavailableError, fetchWeather, type FetchWeatherOptions } from "@/lib/weather/fetch";
 import { MODEL_NAMES, type ModelId, type Weather } from "@/lib/weather/openmeteo";
+import { config } from "./config";
 import { sampleLine, scoreEvening } from "./evening";
 import {
   LOOKS,
@@ -12,6 +13,7 @@ import {
   type Look,
   type Reason,
   type SamplePoint,
+  type ScoreInput,
 } from "./score";
 
 /** Forecasts are computed on a grid of this many degrees, so nearby requests share results. */
@@ -41,6 +43,10 @@ export interface Forecast {
   models: { id: ModelId; name: string; score: number }[];
   /** Cloud along the sunset line from the model shown, fractions 0–1. */
   path: SamplePoint[];
+  /** What each model was scored from, kept with logged sunsets so they can be scored again (SPEC.md §5.7). */
+  inputs: { model: ModelId; input: ScoreInput }[];
+  /** Version of the formula that gave the score (`config.formula`). */
+  formula: number;
   leadHours: number;
   generatedAt: string;
 }
@@ -60,6 +66,11 @@ export class ForecastError extends Error {
 interface Options {
   now?: Date;
   fetch?: typeof fetch;
+  /**
+   * Score this sunset instead of the coming one: any moment of its day. For one that has just
+   * passed, the weather request reaches seven hours back, so the newest model runs score it again.
+   */
+  evening?: Date;
 }
 
 /** Tonight's sunset forecast for a location. Works in the browser and on the server. */
@@ -67,7 +78,7 @@ export async function getForecast(lat: number, lon: number, options: Options = {
   const now = options.now ?? new Date();
   const origin = gridPoint(lat, lon);
 
-  const sun = nextSunset(now, origin.lat, origin.lon);
+  const sun = options.evening ? sunEvents(options.evening, origin.lat, origin.lon) : nextSunset(now, origin.lat, origin.lon);
   if (!sun) throw new ForecastError("no-sunset", "The sun doesn't set here today.");
 
   const coords = sampleLine(origin, sun.bearing);
@@ -102,6 +113,8 @@ export async function getForecast(lat: number, lon: number, options: Options = {
     factors: shown.result.factors,
     models: results.map((r) => ({ id: r.model, name: MODEL_NAMES[r.model], score: r.result.score })),
     path: shown.input.points,
+    inputs: results.map((r) => ({ model: r.model, input: r.input })),
+    formula: config.formula,
     leadHours: Math.round(leadHours * 10) / 10,
     generatedAt: now.toISOString(),
   };

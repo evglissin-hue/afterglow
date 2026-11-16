@@ -1,0 +1,264 @@
+{
+ "app": "afterglow",
+ "note": "Rated evenings the score is checked against (calibration.test.ts). Add exports from My sunsets here.",
+ "logs": [
+  {
+   "date": "2026-11-16",
+   "rating": 3,
+   "colors": [
+    "Gold",
+    "Orange"
+   ],
+   "lat": 51.5,
+   "lon": 0,
+   "note": "Island Gardens, looking across the Thames. Open sky, glowing horizon under a far cloud bank.",
+   "forecast": {
+    "score": 11,
+    "label": "Poor",
+    "look": "blocked",
+    "lookTitle": "Blocked",
+    "confidence": "medium",
+    "formula": 1,
+    "generatedAt": "2026-11-16T16:07:00.000Z",
+    "sunset": "2026-11-16T16:09:22.251Z",
+    "leadHours": 0,
+    "inputs": [
+     {
+      "model": "ukmo_seamless",
+      "input": {
+       "points": [
+        {
+         "km": -25,
+         "lat": 51.612,
+         "lon": 0.313,
+         "low": 0.527,
+         "mid": 0,
+         "high": 0.21
+        },
+        {
+         "km": 0,
+         "lat": 51.5,
+         "lon": 0,
+         "low": 0.007,
+         "mid": 0,
+         "high": 0.065
+        },
+        {
+         "km": 25,
+         "lat": 51.387,
+         "lon": -0.312,
+         "low": 0.006,
+         "mid": 0.003,
+         "high": 0.132
+        },
+        {
+         "km": 50,
+         "lat": 51.273,
+         "lon": -0.622,
+         "low": 0.96,
+         "mid": 0.323,
+         "high": 0.323
+        },
+        {
+         "km": 100,
+         "lat": 51.043,
+         "lon": -1.238,
+         "low": 0.93,
+         "mid": 1,
+         "high": 0.6
+        },
+        {
+         "km": 150,
+         "lat": 50.81,
+         "lon": -1.848,
+         "low": 0.973,
+         "mid": 1,
+         "high": 0.864
+        },
+        {
+         "km": 200,
+         "lat": 50.573,
+         "lon": -2.452,
+         "low": 0.95,
+         "mid": 0.984,
+         "high": 0.438
+        },
+        {
+         "km": 300,
+         "lat": 50.091,
+         "lon": -3.641,
+         "low": 0.797,
+         "mid": 1,
+         "high": 0.397
+        }
+       ],
+       "observer": {
+        "visibilityKm": 12.938,
+        "humidity": 69.614,
+        "rainNow": 0,
+        "rainPrev6h": 0,
+        "aod": 0.053
+       }
+      }
+     },
+     {
+      "model": "ecmwf_ifs",
+      "input": {
+       "points": [
+        {
+         "km": -25,
+         "lat": 51.612,
+         "lon": 0.313,
+         "low": 0.144,
+         "mid": 0,
+         "high": 0.883
+        },
+        {
+         "km": 0,
+         "lat": 51.5,
+         "lon": 0,
+         "low": 0,
+         "mid": 0.006,
+         "high": 0.916
+        },
+        {
+         "km": 25,
+         "lat": 51.387,
+         "lon": -0.312,
+         "low": 0.11,
+         "mid": 0.126,
+         "high": 0.872
+        },
+        {
+         "km": 50,
+         "lat": 51.273,
+         "lon": -0.622,
+         "low": 0.424,
+         "mid": 0.107,
+         "high": 0.797
+        },
+        {
+         "km": 100,
+         "lat": 51.043,
+         "lon": -1.238,
+         "low": 0.845,
+         "mid": 0.288,
+         "high": 0.916
+        },
+        {
+         "km": 150,
+         "lat": 50.81,
+         "lon": -1.848,
+         "low": 0.546,
+         "mid": 0.6,
+         "high": 0.919
+        },
+        {
+         "km": 200,
+         "lat": 50.573,
+         "lon": -2.452,
+         "low": 1,
+         "mid": 0.905,
+         "high": 0.957
+        },
+        {
+         "km": 300,
+         "lat": 50.091,
+         "lon": -3.641,
+         "low": 0.568,
+         "mid": 1,
+         "high": 0.993
+        }
+       ],
+       "observer": {
+        "visibilityKm": 42.775,
+        "humidity": 77.323,
+        "rainNow": 0,
+        "rainPrev6h": 0,
+        "aod": 0.053
+       }
+      }
+     },
+     {
+      "model": "icon_seamless",
+      "input": {
+       "points": [
+        {
+         "km": -25,
+         "lat": 51.612,
+         "lon": 0.313,
+         "low": 0.39,
+         "mid": 0,
+         "high": 0
+        },
+        {
+         "km": 0,
+         "lat": 51.5,
+         "lon": 0,
+         "low": 0.144,
+         "mid": 0,
+         "high": 0
+        },
+        {
+         "km": 25,
+         "lat": 51.387,
+         "lon": -0.312,
+         "low": 0.404,
+         "mid": 0,
+         "high": 0.039
+        },
+        {
+         "km": 50,
+         "lat": 51.273,
+         "lon": -0.622,
+         "low": 0.258,
+         "mid": 0.058,
+         "high": 0.32
+        },
+        {
+         "km": 100,
+         "lat": 51.043,
+         "lon": -1.238,
+         "low": 0.747,
+         "mid": 0.523,
+         "high": 0.032
+        },
+        {
+         "km": 150,
+         "lat": 50.81,
+         "lon": -1.848,
+         "low": 0.584,
+         "mid": 0.835,
+         "high": 0.567
+        },
+        {
+         "km": 200,
+         "lat": 50.573,
+         "lon": -2.452,
+         "low": 0.655,
+         "mid": 0.926,
+         "high": 0.658
+        },
+        {
+         "km": 300,
+         "lat": 50.091,
+         "lon": -3.641,
+         "low": 0.476,
+         "mid": 0.948,
+         "high": 1
+        }
+       ],
+       "observer": {
+        "visibilityKm": 39.939,
+        "humidity": 62.291,
+        "rainNow": 0,
+        "rainPrev6h": 0,
+        "aod": 0.053
+       }
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

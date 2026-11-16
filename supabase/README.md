@@ -35,4 +35,6 @@ To stop the job: `select cron.unschedule('afterglow-alerts');`
 - `push_subscriptions`: one row per phone with alerts on: the push service address and keys, the place rounded to about 1 km, walk time, alert settings, favorite spots, the time zone, and what was decided and sent each day. Switching alerts off deletes the row, and so does a push service reporting that the phone is gone.
 - `app_settings`: the server's push keys and the job's secret.
 
-Both have row-level security on with no policies, so only the site's server, using the secret key, can read or write them.
+- `forecast_archive`: for five London grid cells, the forecast made before each sunset and the same sunset scored again afterwards. Weather only. If the table is missing (the database was set up before it existed), run `schema.sql` again: it only adds what's missing.
+
+All three have row-level security on with no policies, so only the site's server, using the secret key, can read or write them. The archive is also served read-only at `/api/archive`.

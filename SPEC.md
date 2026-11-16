@@ -1,7 +1,9 @@
 # Afterglow: sunset forecast and neighborhood spots for London
 
-*Working name · Spec v0.7 · 3 Nov 2026 · M1 and M2 built; installable; redesigned*
+*Working name · Spec v0.8 · 16 Nov 2026 · M1 and M2 built; installable; redesigned; score formula 2*
 
+> **v0.8:** the first rated evening changed the score. The owner watched a sunset the app called 11 ("Blocked") and gave it 3 of 5: open sky above, a cloud bank far toward the sun. The score now counts the clear-sky glow apart from lit cloud, so a far bank only dents it (§5.4, formula 2: that evening scores 30). Logs keep what the forecast was scored from, ratings have one-line meanings, My sunsets exports the logs for tuning, and the server keeps each evening's forecast before and after sunset (§5.7). New: a sunset photo screen with three looks, saved at full size (§4, 5a).
+>
 > **v0.7:** a visual redesign and a batch of extras, picked by the owner from a numbered list: a live sky, a glowing score, a sunset timeline, a cloud picture, serif titles; a "your view tonight" postcard per spot; a map with the top 3 numbered, a sunset beam, filters and place search; favorites; street henge nights; live mode during the sunset; a share picture; a five-evening outlook; a compass with a camera view; logging sunsets with photos on the phone, with "how the forecast did" (§4). Sunset alerts are built and wait for the Supabase setup (§10 M4). Uploading logs and photos waits for accounts (M3).
 >
 > **v0.6:** the app installs to the home screen (manifest, icons, service worker), opens without a signal showing the last forecast, and is ready to show push alerts once a backend sends them. Map pins answer a tap anywhere within a fingertip's reach.
@@ -92,7 +94,8 @@ The model is SunSeekr, which uses building data to work out which terraces are i
 3a. **Live** (`/live`): from 30 min before sunset to last light, a countdown through sunset, the best color window and last light, what to watch for tonight's look, a 1–5 rating, and share. Keeps the screen awake. Ratings stay on the phone until accounts exist.
 3b. **Compass** (`/compass`): a dial that turns with the phone, with tonight's sunset, the sun now and its path; "Turn right 35°" until you face the sunset (±5°, with a glow and a vibration tick). A camera view puts the sunset point, the horizon and this evening's sun path over the rear camera. Without a compass: which way to face, relative to the sun. Phone compasses can be 10–20° off in a city, which the page says. The math (heading from the full phone rotation, smoothing, field of view after cropping) is in `lib/compass`.
 4. **Add spot** (signed in)
-5. **Log a sunset** (signed in)
+5. **Log a sunset** (`/log`, on the phone until accounts exist): a 1–5 rating with its one-line meaning (1 nothing to see · 2 a little color · 3 nice, worth a look · 4 stopped to watch · 5 one to remember), colors, the spot and whether the view was open, a note, up to 5 photos. The forecast for that evening is saved with it, including what it was scored from, also when logging after dark (§5.7).
+5a. **Sunset photo** (`/photo`, offered on Tonight and in live mode around sunset): "Take a photo" opens the phone's own camera app, so the photo has everything that camera can do (full resolution, HDR, night mode); "Choose from your photos" picks an existing one. Then the photo with four squares to choose from, each a small copy of the photo itself: Original, True (closer to what you saw), Golden (warm, deep and glowing; opens first) and Dusk (cool blues, pink and violet). Hold the photo to compare with the original. Save, Share and "Add to tonight's log". No sliders, on purpose. Quality rules: the look is applied to every pixel of the photo at its real size, in strips, never to the on-screen preview (a browser that can't hold the whole photo saves a little smaller and says so); results are dithered so sky gradients don't band; brights are rolled off so the sun doesn't clip; a Display P3 photo is processed in P3 where the browser allows; the JPEG is written at quality 95; "Original" saves the camera's own file untouched. What a web page can't keep: Ultra HDR gain maps and the camera's metadata (dropping where it was taken is wanted, §9). The pixel math is in `lib/photo/looks.ts`, free of browser code so the Android app can reuse it.
 6. **Me**: home location, walking radius, my spots and logs, alert settings, sign out, delete account
 7. **Admin**: report queue (admin only)
 8. **About**: how the forecast and spot finding work, terms, privacy
@@ -155,11 +158,19 @@ So we sample 8 points along tonight's sunset bearing (one request per API, multi
 union(a, b) = 1 − (1 − a)(1 − b)    // chance that at least one of two layers is there (0–1)
 
 canvas   = weighted mean of union(high, mid) at −25, 0, 25, 50, 100 km  (weights .10 .35 .25 .20 .10)
+openSky  = 1 − weighted mean of union(high, mid) at −25, 0, 25 km       (weights .15 .50 .35)
 lowOver  = mean of low cloud at 0 and 25 km
 gapBlock = weighted mean of union(low, mid) at 100, 150, 200, 300 km    (weights .15 .25 .30 .30)
 
-potential = curve(canvas)     0 → .30 · .1 → .45 · .3 → .85 · .4–.7 → 1 · .9 → .85 · 1 → .70
-gap       = 1 − .85 · smoothstep(.2, .8, gapBlock)
+potential = curve(canvas)     0 → .40 · .1 → .50 · .3 → .85 · .4–.7 → 1 · .9 → .85 · 1 → .70
+blocked   = smoothstep(.2, .8, gapBlock)
+
+// The sky's promise has two parts (formula 2):
+glowShare = min(potential, .40 · openSky)      // the clear-sky gradient: needs open sky above you
+glow      = glowShare · (1 − .25 · blocked)    // a cloud bank far toward the sun only dents it
+lit       = (potential − glowShare) · gap      // color on lit cloud needs the light path:
+gap       = 1 − .85 · blocked                  //   it takes the full penalty
+
 lowCloud  = 1 − .80 · smoothstep(.4, .9, lowOver)
 air       = lowest of:  AOD         ≤ .2 → 1 · .35 → .85 · .5 → .65 · ≥ .8 → .4
                         visibility  ≥ 20 km → 1 · 10 → .85 · 5 → .6 · ≤ 1 → .3
@@ -167,24 +178,26 @@ air       = lowest of:  AOD         ≤ .2 → 1 · .35 → .85 · .5 → .65 ·
 rain      = rain now ≥ 0.5 mm/h → .4 · ≥ 0.1 → .75 · otherwise 1
 clearing  = +8 if ≥ 1 mm fell in the last 6 h, it's dry now and gapBlock < .4
 
-score = clamp(round(100 · potential · gap · lowCloud · air · rain) + clearing, 0, 100)
+score = clamp(round(100 · (glow + lit) · lowCloud · air · rain) + clearing, 0, 100)
 ```
 
 Curves are linear between the listed points. Labels: 0–24 Poor · 25–44 Fair · 45–64 Good · 65–84 Great · 85–100 Epic.
 
-What this gives: clear sky ≈ 30 (Fair, "clean gradient"); half the sky covered in mid or high cloud with a clear path ≈ 100; the same sky with a cloud bank on the path ≈ 15; low overcast < 5.
+What this gives: clear sky ≈ 40 (Fair, "clean gradient"); the same clear sky with a cloud bank far toward the sun ≈ 32; half the sky covered in mid or high cloud with a clear path ≈ 100; that sky with a cloud bank on the path ≈ 28; solid cloud overhead with a bank on the path ≈ 12; low overcast < 10.
 
-All numbers are educated first guesses. They live in one config file and get tuned from real logs (5.7).
+**Why two parts (16 Nov 2026).** Formula 1 was one product, `potential · gap · …`, with clear sky at 30. On 16 Nov the models put a solid bank 100–300 km toward the sunset over a nearly clear east London, and the score was 11, "Blocked". The owner watched it from the river: a glowing orange horizon under the bank, 3 of 5. The gap penalty is right for cloud overhead that needs light from far away; a clear sky's horizon glow depends on that path much less. Formula 2 scores that evening 30. A 3 stands for about 55, so the score still runs low on it: one evening is not enough to move the weights further, and the rated evenings on file (§5.7) will decide.
+
+All numbers are educated first guesses. They live in one config file (`config.formula` says which shape of formula gave a score) and get tuned from real logs (5.7).
 
 ### 5.5 Likely look
 
 The first rule that matches wins:
 
 1. Raining, or low cloud ≥ 85% overhead → **Grey**: "low cloud will hide it"
-2. gapBlock ≥ .75 → **Blocked**: "cloud bank toward the sunset"
+2. gapBlock ≥ .75 and openSky < .7 → **Blocked**: "cloud bank toward the sunset". With more open sky than that the bank only shortens the glow: the look is **Clean gradient** (rule 5), with the reason "Cloud bank far toward the sunset may cut the glow short"
 3. air < .6 → **Hazy and muted**: "maybe a red sun disc"
 4. Score is Poor anyway → whichever of Grey, Blocked or Hazy holds it back most, so a poor score never promises colors
-5. canvas < .1 → **Clean gradient**: "orange horizon; turn around for the pink Belt of Venus"
+5. canvas < .1, or a far bank under an open sky (rule 2) → **Clean gradient**: "orange horizon; turn around for the pink Belt of Venus"
 6. canvas ≥ .75 and gapBlock ≤ .3 → **Whole sky glow**
 7. Mostly high cloud and AOD < .2 → **Pastel pink and purple**
 8. Mostly mid cloud → **Fiery orange and red**
@@ -196,9 +209,17 @@ Score each model separately and show the median. Spread between models ≤ 15 �
 
 ### 5.7 Getting better over time
 
-- Every log stores the forecast inputs and score at that moment.
-- From M4, a daily job also stores the forecast made before sunset.
-- After a few weeks: compare forecasts with ratings, tune the config, and add a simple "how we did" page.
+**What a rating means.** Each rating has a one-line meaning shown wherever a sunset is rated (§4, 5), and stands for the middle of a label's band: 1 → 12 (Poor), 2 → 35 (Fair), 3 → 55 (Good), 4 → 75 (Great), 5 → 93 (Epic). That is how "it was pretty nice" becomes a number the score can be checked against.
+
+**What a log keeps.** The forecast for that evening as a snapshot: score, label, look, confidence, formula version, when it was made, and for each weather model the cloud at the eight sample points and the air at the observer. About 3 kB. With those inputs any logged evening can be scored again under new settings (`rescore` in `lib/forecast/calibration.ts`). The phone remembers the last forecast for each of the past ten evenings, so a log made after dark still gets one.
+
+**How the score is checked.**
+- My sunsets shows how today's formula would have scored each logged evening, and by how much the score runs above or below the ratings.
+- "Export for tuning" in My sunsets hands over the logs as one file (no photos), with the server's archived forecasts for those evenings attached when it has them.
+- Rated evenings on file live in `lib/forecast/__fixtures__/rated-sunsets.json`; `calibration.test.ts` scores them with the current settings and fails if the error grows. To tune: add an export's logs to that file, change `config.ts`, and keep what lowers the error across all of them. With few evenings, change the formula's shape only for a reason that holds in general, and leave weights alone until about 20 are on file.
+
+**The forecast archive** (built 16 Nov 2026; needs `schema.sql` run again for its table). For five London grid cells (central, and one cell north, south, east and west), the 15-minute job keeps two snapshots per evening in `forecast_archive`: the forecast made one to two hours **before** sunset, and the same sunset scored again one to four hours **after** it from the newest model runs. Comparing them separates the two ways a score goes wrong: the weather forecast changed (before and after differ), or the formula misjudged a sky it knew about (they agree and the rating doesn't). `GET /api/archive?lat=…&lon=…&days=60` serves the nearest cell's rows: weather for public grid cells, nothing personal. The "after" snapshot is still a model's view of the sky, not an observation.
+
 - The app says plainly that cloud forecasts can be wrong.
 
 ### 5.8 Where the forecast runs, and the API
@@ -371,7 +392,9 @@ push_subs       id, user_id, endpoint, p256dh, auth, created_at, last_ok_at
                 and per-day decided/sent dates; service role only)
 app_settings    key, value: the server's own secrets (push keys, made on first use; the
                 15-minute job's secret, made by schema.sql); service role only
-forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, confidence, inputs (jsonb)
+forecast_archive  id, evening, cell ('51.5,-0.1'), kind (before | after), made_at, score, formula,
+                snapshot (jsonb: the score with each model's cloud and air); unique per evening,
+                cell and kind; service role only, served read-only by /api/archive (§5.7)
 ```
 
 - `visibility` exists from day one (always `public` in v1), so private or friends-only can be added later without a migration.
@@ -382,7 +405,8 @@ forecast_snaps  id, cell, sunset_date, computed_at, lead_minutes, score, look, c
 
 ## 9. Photos and privacy
 
-- Photos are resized on the device to max 2048 px, plus a 400 px thumbnail. Re-encoding removes all metadata, including GPS.
+- Photos kept with a log are resized on the device to max 2048 px, plus a 400 px thumbnail. Re-encoding removes all metadata, including GPS.
+- The sunset photo screen (§4, 5a) works on the phone only: the photo is never uploaded, and what it saves is full size. A look's result carries no metadata; "Original" is the camera's own file, metadata included.
 - EXIF time and location are read on the device first, only to prefill the log.
 - Limits: 5 photos per log, 30 a day per user. Supabase's free 1 GB holds roughly 2,500 photos.
 - Location is used on the device. The only stored location is the optional home location, rounded to ~1 km.
@@ -405,11 +429,11 @@ Supabase, Google sign-in, add a spot (compass + wedge), log a sunset with photos
 *Done when:* on a phone, a signed-in user can add a spot and a log with photos, other people see them, and three reports hide an item.
 
 **M4: Alerts** · **Built and live 3 Nov 2026**: Supabase's job calls the site every 15 minutes, and a test alert reached the owner's phone (`supabase/README.md`)
-Installable PWA (manifest + service worker; built, §7.1), push opt-in and settings (`/alerts`, without accounts: the push subscription is the identity), and the 15-minute job (send due alerts; built). Not built yet: saving the daily pre-sunset forecast (`forecast_snaps`).
+Installable PWA (manifest + service worker; built, §7.1), push opt-in and settings (`/alerts`, without accounts: the push subscription is the identity), and the 15-minute job (send due alerts; built). The daily pre-sunset forecast is saved too, with a second scoring after sunset (`forecast_archive`, §5.7; built 16 Nov 2026).
 *Done when:* a test user gets exactly one alert on a day that clears their threshold, at their chosen time, naming the best spot within their walking radius, on Android Chrome and on an iPhone with the app on the home screen.
 
 **Later**
-- Tune the score from logs (logs and a personal "how the forecast did" exist on the phone: `/log`, `/me`)
+- Keep tuning the score from logs: the tools are built (§5.7) and one rated evening is on file; the weights wait for about 20
 - LIDAR heights for real trees and buildings
 - Feed, follows, likes, comments; private spots (e.g. "my balcony")
 - Android app (§7.1), then maybe iPhone; a home-screen widget with tonight's score
@@ -432,4 +456,6 @@ Installable PWA (manifest + service worker; built, §7.1), push opt-in and setti
 - **Online:** done, at https://afterglow-evglissin-hue.vercel.app (Vercel project `afterglow`; public since 3 Nov 2026).
 - **To deploy on every push:** connect the GitHub repo in the Vercel project's Git settings.
 - **Alerts:** done on 3 Nov 2026: Vercel Authentication off, Supabase added from Vercel's Storage tab, `schema.sql` run, alerts on and a test alert received (`supabase/README.md`). Still to see: the first real alert on an evening that clears the threshold.
+- **Forecast archive:** run `supabase/schema.sql` once more in Supabase's SQL Editor (it only adds the new `forecast_archive` table). Until then the job says the table is missing and alerts carry on as before.
+- **Sunsets:** rate each one you watch, the dull ones too, then send the export from My sunsets now and then.
 - **Before M3 (accounts, uploading logs and photos):** the same Supabase project, plus a Google sign-in client. I'll write step-by-step instructions when we get there.

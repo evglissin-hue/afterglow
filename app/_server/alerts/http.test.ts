@@ -4,6 +4,7 @@ import { EMPTY_ALERT_STATE, type PushMessage } from "@/lib/alerts";
 import {
   hasBearer,
   isPushEndpoint,
+  runCron,
   parseSubscribeBody,
   sendTest,
   subscribe,
@@ -12,6 +13,8 @@ import {
 } from "./http";
 import type { PushSender, PushTarget, SendOptions, SendResult } from "./push";
 import { MemoryStore } from "./store";
+import { MemoryArchive } from "../archive/store";
+import type { Forecast } from "@/lib/forecast/getForecast";
 
 const ENDPOINT = "https://fcm.googleapis.com/fcm/send/abc123:APA91b-test";
 
@@ -250,5 +253,42 @@ describe("the cron secret", () => {
     expect(hasBearer("s3cret-s3cret-s3cret", "s3cret-s3cret-s3cret")).toBe(false);
     expect(hasBearer(null, "s3cret-s3cret-s3cret")).toBe(false);
     expect(hasBearer("Bearer ", "")).toBe(false);
+  });
+});
+
+describe("the cron run", () => {
+  const cron = (secret: string) =>
+    new Request("https://afterglow.test/api/cron/alerts", { method: "POST", headers: { authorization: `Bearer ${secret}` } });
+  const sources = {
+    forecastAt: async () => {
+      throw new Error("no subscribers, so no forecast is asked for");
+    },
+    spotsNear: async () => ({ index: null as never, spots: [] }),
+    forecastFor: async (_cell: unknown, sunset: Date) =>
+      ({ score: 30, label: "Fair", look: "clean", sun: { sunset: sunset.toISOString() }, leadHours: 1.5, inputs: [] }) as unknown as Forecast,
+  };
+
+  it("refuses a wrong secret", async () => {
+    const { services } = setup();
+    expect((await runCron(cron("not-the-secret-at-all"), services, sources)).status).toBe(401);
+  });
+
+  it("keeps the evening's forecasts alongside the alerts", async () => {
+    // 14:45 on 3 Nov 2026 is inside the "before" window of London's 16:30 sunset.
+    const { services } = setup(new Date("2026-11-03T14:45:00Z"));
+    const archive = new MemoryArchive();
+    const response = await runCron(cron("a-long-enough-cron-secret"), { ...services, archive }, sources);
+    const result = (await response.json()) as { ok: boolean; archive: { saved: number; errors: string[] } };
+    expect(result.ok).toBe(true);
+    expect(result.archive.errors).toEqual([]);
+    expect(result.archive.saved).toBe(5);
+    expect(archive.rows.every((row) => row.kind === "before" && row.evening === "2026-11-03")).toBe(true);
+  });
+
+  it("runs the alerts without an archive", async () => {
+    const { services } = setup();
+    const result = (await (await runCron(cron("a-long-enough-cron-secret"), services, sources)).json()) as Record<string, unknown>;
+    expect(result.ok).toBe(true);
+    expect(result.archive).toBeUndefined();
   });
 });

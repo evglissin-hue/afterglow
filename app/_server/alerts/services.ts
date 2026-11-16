@@ -1,3 +1,4 @@
+import { supabaseArchive } from "../archive/supabase";
 import { readSupabaseEnv, secretOverrides, vapidSubject } from "./env";
 import type { AlertServices } from "./http";
 import { webPushSender } from "./push";
@@ -25,6 +26,7 @@ async function build(): Promise<AlertServices | null> {
   const secrets = { ...(await loadAlertSecrets(env.url, env.serviceKey)), ...secretOverrides() };
   return {
     store: supabaseStore(env.url, env.serviceKey),
+    archive: supabaseArchive(env.url, env.serviceKey),
     sender: webPushSender({ subject: vapidSubject(), publicKey: secrets.vapidPublicKey, privateKey: secrets.vapidPrivateKey }),
     cronSecret: secrets.cronSecret,
     publicKey: secrets.vapidPublicKey,

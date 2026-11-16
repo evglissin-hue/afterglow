@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { isTimeZone, parseAlertSettings, parseFavorites, testMessage } from "@/lib/alerts";
 import { roundTo } from "@/lib/geo";
+import { runArchiveJob, type ArchiveDeps } from "../archive/job";
+import type { ArchiveStore } from "../archive/store";
 import { runAlertJob, type JobDeps } from "./job";
 import type { PushSender } from "./push";
 import type { SubscriptionInput, SubscriptionStore } from "./store";
@@ -13,6 +15,8 @@ export interface AlertServices {
   store: SubscriptionStore;
   sender: PushSender;
   cronSecret: string;
+  /** Where each evening's forecasts are kept (SPEC.md §5.7). Without it the cron run skips the archive. */
+  archive?: ArchiveStore;
   /** The push (VAPID) public key browsers subscribe with. */
   publicKey?: string;
   /** The current time; tests pin it. */
@@ -20,7 +24,7 @@ export interface AlertServices {
 }
 
 /** What only the alert job needs: forecasts and spot tiles. */
-export type JobSources = Pick<JobDeps, "forecastAt" | "spotsNear">;
+export type JobSources = Pick<JobDeps, "forecastAt" | "spotsNear"> & { forecastFor?: ArchiveDeps["forecastFor"] };
 
 export const NOT_SET_UP = "Alerts aren't set up yet";
 export const TEST_GAP_MS = 60_000;
@@ -204,14 +208,25 @@ export async function runCron(
     return reply({ error: "Unauthorized" }, 401);
   }
   try {
+    const { forecastFor, ...alertSources } = sources;
     const summary = await runAlertJob({
       store: services.store,
       sender: services.sender,
-      ...sources,
+      ...alertSources,
       now: services.clock?.(),
     });
     if (summary.errors.length) console.warn("Alert job problems:", summary.errors);
-    return reply({ ok: true, ...summary });
+    // The archive rides along; its trouble never fails the alerts.
+    const archive =
+      services.archive && forecastFor
+        ? await runArchiveJob({ store: services.archive, forecastFor, now: services.clock?.() }).catch((error: unknown) => ({
+            due: 0,
+            saved: 0,
+            errors: [error instanceof Error ? error.message : String(error)],
+          }))
+        : undefined;
+    if (archive?.errors.length) console.warn("Archive job problems:", archive.errors);
+    return reply({ ok: true, ...summary, ...(archive ? { archive } : {}) });
   } catch (error) {
     console.error("Alert job failed:", error);
     return reply({ ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
